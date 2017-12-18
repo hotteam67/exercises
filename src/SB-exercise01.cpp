@@ -2,16 +2,16 @@
 #include "RobotUtils/RobotUtils.h"
 #include "ctrlib/CANTalon.h"
 #include "ctrlib/PigeonImu.h"
-/*open the CANTalon library*/
+
 class benchTest: public HotBot {
 private:
 
 	HotJoystick* m_driver;
 
-	CANTalon* m_CANmotor4;
 	CANTalon* m_CANmotor1;
-	CANTalon* m_CANmotor3;
 	CANTalon* m_CANmotor2;
+	CANTalon* m_CANmotor3;
+	CANTalon* m_CANmotor4;
 
 	PigeonImu * m_pigey;
 
@@ -39,7 +39,7 @@ public:
 		m_CANmotor2 = new CANTalon(2);
 		m_CANmotor3 = new CANTalon(3);
 		m_CANmotor4 = new CANTalon(4);
-		m_pigey = new PigeonImu(m_CANmotor4); /* Pigeon installed on CANTalon(4) */
+		m_pigey = new PigeonImu(m_CANmotor4);  /* Pigeon installed on CANTalon(4) */
 
 	}
 	void RobotInit() {
