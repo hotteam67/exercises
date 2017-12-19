@@ -3,6 +3,22 @@
 #include "ctrlib/CANTalon.h"
 #include "ctrlib/PigeonImu.h"
 
+/* Exercise 01 is to use the joystick and motors (Talon SRX) 2, 3, 4 on the Sweet Bench
+ *
+ * Functional Requirements:
+ * 1)  All functionality shall be done in TeleOp mode.
+ * 2)  Use the joystick "A" button to cycle between controlling motor 2, motor 3, motor 4, or no motor.
+ * 3)  Upon initialization, the control shall default to "no motor" for safety.
+ * 4)  Button presses shall be interpreted as the transition from false to true.
+ * 5)  The joystick left stick, x-axis shall control the speed and direction of the active motor.
+ * 6)  The x-axis of the left stick should have a deadband from -0.2 to +0.2 to allow for
+ *     joystick hysteresis (i.e. not quite returning to zero when released)
+ * 7)  The lower "active" region of the joystick (-1.0 -> -0.2) shall command between -1.0 and 0.0 speed.
+ * 8)  The upper "active" region of the joystick (+0.2 -> +1.0) shall command between 0.0 and +1.0 speed.
+ * 9)  The A Button State, Commanded Speed, and Active Motor shall be output to the dashboard.
+ *
+ */
+
 class benchTest: public HotBot {
 private:
 
