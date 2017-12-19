@@ -4,7 +4,7 @@
 #include "ctrlib/PigeonImu.h"
 #include "stdlib.h"
 
-/* Exercise 02 is to use the PigeonIMU, DIO, analog potentiometer and the LED light ring on the Sweet Bench
+/* Exercise 02 uses the PigeonIMU, DIO(4), analog potentiometer(0) and the LED light ring on the Sweet Bench
  * The goal of this exercise is to create a motion detection algorithm that will light the LED
  * ring if the IMU moves in any direction.  The motion detection tolerance will be defined by the
  * potentiometer, and the Pigeon angles can be zeroed with the DIO pushbutton.
