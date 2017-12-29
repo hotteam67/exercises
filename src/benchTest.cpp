@@ -1,11 +1,14 @@
+#include <CANmotor.h>
 #include "WPILib.h"
 #include "RobotUtils/RobotUtils.h"
-#include "PWMmotor.h"
+#include "ctrlib/CANTalon.h"
+#include <chrono>
+#include <stdlib.h>
 
-/* Exercise 04 uses the following I/O on the Sweet Bench:
+/* Exercise 05 uses the following I/O on the Sweet Bench:
  *      Analog Potentiometer
- *      Victor Motor Controller
- *      256 counts/rev encoder
+ *      Talon Motor Controller
+ *      Magnetic encoder
  *      Pushbutton switch
  *
  * Functional Requirements:
@@ -26,25 +29,23 @@ private:
 
 	AnalogPotentiometer* m_Analog0;
 	DigitalInput* m_SwitchDIO4;
-	Encoder* m_EncoderMtr5;
-	PWMmotor* m_motor5;
+	CANmotor* m_motor3;
 
-	float spdCmd;
+	double spdCmd;
 	double potentio;
 	bool switchState;
 	bool switchStateOld = false;
-	bool direction = true;
-	double encoderTicksMtr5;
+	bool controlMode = false;
 	double actSpdRPM;
+	double motorCurrent;
 
 
 public:
 	benchTest() {
 		m_SwitchDIO4 = new DigitalInput(4);
 		AnalogInput* ai = new AnalogInput(0);
-		m_Analog0 = new AnalogPotentiometer(ai, 360, 0);
-		m_EncoderMtr5 = new Encoder(2,3,true,Encoder::EncodingType::k4X);
-		m_motor5 = new PWMmotor(0);
+		m_Analog0 = new AnalogPotentiometer(ai, 3600, 0);
+		m_motor3 = new CANmotor(3);
 
 
 	}
@@ -61,8 +62,7 @@ public:
 	}
 
 	void TeleopInit() {
-		m_EncoderMtr5->SetSamplesToAverage(15);
-		m_EncoderMtr5->SetDistancePerPulse(1.0 / 256.0); /* 1 rotation per 256 pulses */
+
 	}
 
 	void TeleopPeriodic() {
@@ -71,26 +71,25 @@ public:
 		/* Read inputs */
 		potentio = m_Analog0->Get();
 		switchState = !m_SwitchDIO4->Get();
-		encoderTicksMtr5 = m_EncoderMtr5->Get();
 
 		/* Calculate speed from potentiometer input */
-		spdCmd = potentio / 360;
+		spdCmd = potentio;
 
-		/* Convert encoder rate to rpm */
-		actSpdRPM = (m_EncoderMtr5->GetRate() * 60.0);
+		/* Get Shaft Speed and motor current */
+		actSpdRPM = m_motor3->GetSpeed();
+		motorCurrent = m_motor3->GetOutputCurrent();
 
 
-		/* Change motor direction if switch (DIO4) is pressed and
-		 * motor speed is less than 50 rpm.  */
-		if ((switchState) && (!switchStateOld) && (actSpdRPM < 50.0)) {
-			direction = !direction;
+		/* Change control mode if switch (DIO4) is pressed */
+		if ((switchState) && (!switchStateOld)) {
+			controlMode = !controlMode;
 		}
 
 		/* Command speed to motor */
-		if (direction) {
-			m_motor5->Set(spdCmd);
+		if (controlMode) {
+			m_motor3->Enable(spdCmd);
 		} else {
-			m_motor5->Set(-spdCmd);
+			m_motor3->Disable();
 		}
 
 
@@ -105,11 +104,11 @@ public:
 	void DashboardOutput() {
 		/* Writes variables to Dashboard */
 		SmartDashboard::PutBoolean("switchState", switchState);
-		SmartDashboard::PutBoolean("direction", direction);
+		SmartDashboard::PutBoolean("Enabled", controlMode);
 		SmartDashboard::PutNumber("SpdCmd", spdCmd);
 		SmartDashboard::PutNumber("potentio", potentio);
 		SmartDashboard::PutNumber("actSpdRPM", actSpdRPM);
-		SmartDashboard::PutNumber("encoderTicksMtr5", encoderTicksMtr5);
+		SmartDashboard::PutNumber("motorCurrent", motorCurrent);
 	}
 
 
