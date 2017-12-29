@@ -7,20 +7,21 @@
 
 /* Exercise 05 uses the following I/O on the Sweet Bench:
  *      Analog Potentiometer
- *      Talon Motor Controller
+ *      CANTalon Motor Controller
  *      Magnetic encoder
  *      Pushbutton switch
  *
  * Functional Requirements:
  * 1)  All functionality shall be done in TeleOp mode.
- * 2)  Use potentiometer [AnalogInput(0)] to control magnitude of speed command.
- * 3)  Use pushbutton [DIO4] to trigger a motor direction change when the pushbutton is initially
- *     pressed (buttonState == true && buttonStateOld == false).
- * 4)  Only trigger a direction flip is the encoder speed [using inputs 2 and 3] is less than 50 rpm.
- * 5)  Use the encoder to measure the shaft speed in revs/minute.  Output speed to dashboard.
- * 6)  Create a new class, PWMmotor that accepts an integer arguement at initialization
- *     to specify the PWM channel to send to the Victor.  Additionally, create a "Set" function in
- *     the PWMmotor class that commands the motor speed.
+ * 2)  Use potentiometer [AnalogInput(0)] to control magnitude of speed command.  The analog input
+ *     should scale the speed command between 0 and 3600 rpm.
+ * 3)  Use pushbutton [DIO4] to enable/disable PID speed control of motor 3 when the pushbutton
+ *     is initially pressed (buttonState == true && buttonStateOld == false).
+ * 4)  When enabling the robot, the PID speed control of motor 3 shall default to "disabled".
+ * 5)  Use the magnetic encoder to measure the shaft speed in revs/minute.  Output speed to dashboard.
+ * 6)  Create a new class, CANmotor that accepts an integer argument at initialization
+ *     to specify the CAN channel to send to the Talon.  Additionally, create a "Set" function in
+ *     the CANmotor class that commands the motor speed.
  *
  */
 
