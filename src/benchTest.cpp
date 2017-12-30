@@ -17,11 +17,15 @@
  *     should scale the speed command between 0 and 3600 rpm.
  * 3)  Use pushbutton [DIO4] to enable/disable PID speed control of motor 3 when the pushbutton
  *     is initially pressed (buttonState == true && buttonStateOld == false).
- * 4)  When enabling the robot, the PID speed control of motor 3 shall default to "disabled".
- * 5)  Use the magnetic encoder to measure the shaft speed in revs/minute.  Output speed to dashboard.
- * 6)  Create a new class, CANmotor that accepts an integer argument at initialization
+ * 4)  The PID speed control shall be done using the CAN Talon PID library functions.  See documentation
+ *     for CTR Electronics TALON SRX Software Reference Manual.
+ * 5)  When enabling the robot, the PID speed control of motor 3 shall default to "disabled".
+ * 6)  Use the magnetic encoder to measure the shaft speed in revs/minute.  Output speed to dashboard.
+ * 7)  Create a new class, CANmotor that accepts an integer argument at initialization
  *     to specify the CAN channel to send to the Talon.  Additionally, create a "Set" function in
  *     the CANmotor class that commands the motor speed.
+ * 8)  Tune P, I, D (and maybe F) gains for responsive and accurate speed control.  Configure CANmotor
+ *     class so that gain constants can be easily tweaked in the code.
  *
  */
 
