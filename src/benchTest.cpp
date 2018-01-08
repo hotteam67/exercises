@@ -1,7 +1,6 @@
 #include "WPILib.h"
-#include "RobotUtils/RobotUtils.h"
-#include "ctrlib/CANTalon.h"
-#include "ctrlib/PigeonImu.h"
+#include "RobotUtils/HotJoystick.h"
+
 
 /* Exercise 01 is to use the joystick and motors (Talon SRX) 2, 3, 4 on the Sweet Bench
  *
@@ -19,32 +18,15 @@
  *
  */
 
-class benchTest: public HotBot {
+class benchTest: public IterativeRobot {
 private:
 
 	HotJoystick* m_driver;
-	CANTalon* m_CANmotor2;
-	CANTalon* m_CANmotor3;
-	CANTalon* m_CANmotor4;
-
-	bool aButton;
-	bool aButtonOld = false;
-	bool motorStTransInProcess = false;
-	float joystickRaw;
-	float spdCmd;
-
-	int motorSelect = 0;
-	     /* 0: Off (no motor)
-		    1: CANTalon2
-			2: CANTalon3
-			3: CANTalon4 */
 
 public:
 	benchTest() {
 		m_driver = new HotJoystick(0);
-		m_CANmotor2 = new CANTalon(2);
-		m_CANmotor3 = new CANTalon(3);
-		m_CANmotor4 = new CANTalon(4);
+
 	}
 	void RobotInit() {
 	}
@@ -63,73 +45,25 @@ public:
 	}
 
 	void TeleopPeriodic() {
+		DashboardOutput();
 
-		 /* Read inputs from Joystick */
-		 aButton = m_driver->ButtonA();
-		 joystickRaw = m_driver->AxisLX();  /* Uses Left Stick, X axis */
-
-		 /* Deadband input, determine joystickMod */
-		 if(joystickRaw <= 0.2 && joystickRaw >= -0.2){
-			 spdCmd = 0.0;
-		 }else if(joystickRaw > 0.2){
-			 spdCmd = (joystickRaw - 0.2) * 1.25;
-		 }else{
-			 spdCmd = (joystickRaw + 0.2) * 1.25;
-		 }
-
-		 /* Process button presses */
-		 /* Look for aButton to transition from false to true */
-		 if ((aButton == true) && (aButtonOld == false)) {
-			 motorStTransInProcess = true;
-		 } else {
-			 motorStTransInProcess = false;
-		 }
-
-		 /* Use motorSelect to define speed commands to motors */
-		 if (motorStTransInProcess == true) {
-			 if (motorSelect < 3) {
-				 motorSelect++;
-			 } else {
-				 motorSelect = 0;
-			 }
-		 }
-
-		 /* Command speeds to motor controllers */
-		 switch (motorSelect) {
-		 case 0:
-			 m_CANmotor2->Set(0.0);
-			 m_CANmotor3->Set(0.0);
-			 m_CANmotor4->Set(0.0);
-			 break;
-		 case 1:
-			 m_CANmotor2->Set(spdCmd);
-			 m_CANmotor3->Set(0.0);
-			 m_CANmotor4->Set(0.0);
-			 break;
-		 case 2:
-			 m_CANmotor2->Set(0.0);
-			 m_CANmotor3->Set(spdCmd);
-			 m_CANmotor4->Set(0.0);
-			 break;
-		 case 3:
-			 m_CANmotor2->Set(0.0);
-			 m_CANmotor3->Set(0.0);
-			 m_CANmotor4->Set(spdCmd);
-			 break;
-		 }
-
-		 /* Preserve knowledge of previous loop button state */
-		 aButtonOld = aButton;
-
-		 DashboardOutput();
 	}
 
 	void DashboardOutput() {
-		/* Writes variables to Dashboard */
-		SmartDashboard::PutBoolean("ButtonA", aButton);
-		SmartDashboard::PutNumber("joystickRaw", joystickRaw);
-		SmartDashboard::PutNumber("motorSelect", motorSelect);
-		SmartDashboard::PutNumber("SpdCmd", spdCmd);
+		SmartDashboard::PutBoolean("ButtonA", m_driver->ButtonA());
+		SmartDashboard::PutBoolean("ButtonB", m_driver->ButtonB());
+		SmartDashboard::PutBoolean("ButtonX", m_driver->ButtonX());
+		SmartDashboard::PutBoolean("ButtonY", m_driver->ButtonY());
+		SmartDashboard::PutBoolean("ButtonRB", m_driver->ButtonRB());
+		SmartDashboard::PutBoolean("ButtonLB", m_driver->ButtonLB());
+
+		SmartDashboard::PutNumber("JoystickLY", m_driver->AxisLY());
+		SmartDashboard::PutNumber("JoystickRY", m_driver->AxisRY());
+		SmartDashboard::PutNumber("JoystickLX", m_driver->AxisLX());
+		SmartDashboard::PutNumber("JoystickRX", m_driver->AxisRX());
+
+		SmartDashboard::PutNumber("TriggerL", m_driver->AxisLT());
+		SmartDashboard::PutNumber("TriggerR", m_driver->AxisRT());
 	}
 
 
