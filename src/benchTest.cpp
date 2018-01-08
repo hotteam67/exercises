@@ -1,5 +1,6 @@
 #include "WPILib.h"
 #include "RobotUtils/HotJoystick.h"
+#include "ctre/Phoenix.h"
 
 
 /* Exercise 01 is to use the joystick and motors (Talon SRX) 2, 3, 4 on the Sweet Bench
@@ -23,9 +24,13 @@ private:
 
 	HotJoystick* m_driver;
 
+	TalonSRX * m_motor2;
+
 public:
 	benchTest() {
 		m_driver = new HotJoystick(0);
+
+		m_motor2 = new TalonSRX(2);
 
 	}
 	void RobotInit() {
@@ -47,23 +52,35 @@ public:
 	void TeleopPeriodic() {
 		DashboardOutput();
 
+		if (m_driver->ButtonA()){
+			m_motor2->Set(ControlMode::PercentOutput, 0.25);
+		}
+		else {
+			m_motor2->Set(ControlMode::PercentOutput, 0.0);
+		}
+
 	}
 
 	void DashboardOutput() {
-		SmartDashboard::PutBoolean("ButtonA", m_driver->ButtonA());
-		SmartDashboard::PutBoolean("ButtonB", m_driver->ButtonB());
-		SmartDashboard::PutBoolean("ButtonX", m_driver->ButtonX());
-		SmartDashboard::PutBoolean("ButtonY", m_driver->ButtonY());
-		SmartDashboard::PutBoolean("ButtonRB", m_driver->ButtonRB());
-		SmartDashboard::PutBoolean("ButtonLB", m_driver->ButtonLB());
 
-		SmartDashboard::PutNumber("JoystickLY", m_driver->AxisLY());
-		SmartDashboard::PutNumber("JoystickRY", m_driver->AxisRY());
-		SmartDashboard::PutNumber("JoystickLX", m_driver->AxisLX());
-		SmartDashboard::PutNumber("JoystickRX", m_driver->AxisRX());
+		//Joystick
+			SmartDashboard::PutBoolean("ButtonA", m_driver->ButtonA());
+			SmartDashboard::PutBoolean("ButtonB", m_driver->ButtonB());
+			SmartDashboard::PutBoolean("ButtonX", m_driver->ButtonX());
+			SmartDashboard::PutBoolean("ButtonY", m_driver->ButtonY());
+			SmartDashboard::PutBoolean("ButtonRB", m_driver->ButtonRB());
+			SmartDashboard::PutBoolean("ButtonLB", m_driver->ButtonLB());
 
-		SmartDashboard::PutNumber("TriggerL", m_driver->AxisLT());
-		SmartDashboard::PutNumber("TriggerR", m_driver->AxisRT());
+			SmartDashboard::PutNumber("JoystickLY", m_driver->AxisLY());
+			SmartDashboard::PutNumber("JoystickRY", m_driver->AxisRY());
+			SmartDashboard::PutNumber("JoystickLX", m_driver->AxisLX());
+			SmartDashboard::PutNumber("JoystickRX", m_driver->AxisRX());
+
+			SmartDashboard::PutNumber("TriggerL", m_driver->AxisLT());
+			SmartDashboard::PutNumber("TriggerR", m_driver->AxisRT());
+
+		//Talon Info
+			SmartDashboard::PutNumber("Motor Percent Output", m_motor2->GetMotorOutputPercent());
 	}
 
 
