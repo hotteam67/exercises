@@ -25,12 +25,20 @@ private:
 	HotJoystick* m_driver;
 
 	TalonSRX * m_motor2;
+	TalonSRX * m_motor4;
+
+	PigeonIMU * m_pigeon;
+
+	double angleIMU[3];
 
 public:
 	benchTest() {
 		m_driver = new HotJoystick(0);
 
 		m_motor2 = new TalonSRX(2);
+		m_motor4 = new TalonSRX(4);
+
+		m_pigeon = new PigeonIMU(m_motor4);
 
 	}
 	void RobotInit() {
@@ -53,12 +61,13 @@ public:
 		DashboardOutput();
 
 		if (m_driver->ButtonA()){
-			m_motor2->Set(ControlMode::PercentOutput, 0.25);
+			m_motor4->Set(ControlMode::PercentOutput, 0.25);
 		}
 		else {
-			m_motor2->Set(ControlMode::PercentOutput, 0.0);
+			m_motor4->Set(ControlMode::PercentOutput, 0.0);
 		}
 
+		m_pigeon->GetYawPitchRoll(angleIMU);
 	}
 
 	void DashboardOutput() {
@@ -81,6 +90,10 @@ public:
 
 		//Talon Info
 			SmartDashboard::PutNumber("Motor Percent Output", m_motor2->GetMotorOutputPercent());
+
+		//PigeonIMU Info
+			SmartDashboard::PutNumber("Yaw", angleIMU[0]);
+			SmartDashboard::PutNumber("Temperature", m_pigeon->GetTemp());
 	}
 
 
