@@ -7,8 +7,7 @@
 
 #include <CANmotor.h>
 #include "WPILib.h"
-#include "RobotUtils/RobotUtils.h"
-#include "ctrlib/CANTalon.h"
+#include "ctre/Phoenix.h"
 #include <chrono>
 
 CANmotor::CANmotor(int number) {

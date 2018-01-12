@@ -1,7 +1,7 @@
 #include <CANmotor.h>
 #include "WPILib.h"
-#include "RobotUtils/RobotUtils.h"
-#include "ctrlib/CANTalon.h"
+#include "RobotUtils/HotJoystick.h"
+#include "ctre/Phoenix.h"
 #include <chrono>
 #include <stdlib.h>
 
@@ -29,7 +29,7 @@
  *
  */
 
-class benchTest: public HotBot {
+class benchTest: public IterativeRobot {
 private:
 
 	AnalogPotentiometer* m_Analog0;

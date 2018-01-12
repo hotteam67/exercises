@@ -10,8 +10,7 @@
 
 #include <CANmotor.h>
 #include "WPILib.h"
-#include "RobotUtils/RobotUtils.h"
-#include "ctrlib/CANTalon.h"
+#include "ctre/Phoenix.h"
 #include <chrono>
 
 #define GAIN_P 0.05
