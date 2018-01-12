@@ -1,7 +1,6 @@
 #include "WPILib.h"
-#include "RobotUtils/RobotUtils.h"
-#include "ctrlib/CANTalon.h"
-#include "ctrlib/PigeonImu.h"
+#include "RobotUtils/HotJoystick.h"
+#include "ctre/Phoenix.h"
 #include <chrono>
 
 /* Exercise 03 uses the Potentiometer (AnalogIn0), Pushbutton Switch (DIO4),
@@ -32,7 +31,7 @@
  *
  */
 
-class benchTest: public HotBot {
+class benchTest: public IterativeRobot {
 private:
 
 	CANTalon* m_CANmotor1;
