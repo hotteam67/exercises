@@ -19,7 +19,7 @@
  *
  */
 
-class benchTest: public HotBot {
+class benchTest: public IterativeRobot {
 private:
 	PigeonImu* m_pigey;
 	Relay* m_LED_Ring;
