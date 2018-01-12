@@ -1,7 +1,6 @@
 #include "WPILib.h"
-#include "RobotUtils/RobotUtils.h"
-#include "ctrlib/CANTalon.h"
-#include "ctrlib/PigeonImu.h"
+#include "RobotUtils/HotJoystick.h"
+#include "ctre/Phoenix.h"
 #include "stdlib.h"
 
 /* Exercise 02 uses the PigeonIMU, DIO(4), analog potentiometer(0) and the LED light ring on the Sweet Bench
