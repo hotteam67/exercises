@@ -1,5 +1,5 @@
 #include "WPILib.h"
-#include "RobotUtils/RobotUtils.h"
+#include "RobotUtils/HotJoystick.h"
 #include "PWMmotor.h"
 #include "stdlib.h"
 #include <chrono>
@@ -30,7 +30,7 @@
  *   800 rpm = 100% speed
  */
 
-class benchTest: public HotBot {
+class benchTest: public IterativeRobot {
 private:
 
 	AnalogPotentiometer* m_Analog0;

@@ -10,7 +10,6 @@
 
 #include <PWMmotor.h>
 #include "WPILib.h"
-#include "RobotUtils/RobotUtils.h"
 
 class PWMmotor {
 public:
@@ -40,7 +39,7 @@ private:
 	double speedError;
 	double accumulatedError;
 	double pComp, iComp, dComp, fComp;
-	double spdLast;
+	double spdErrorLast;
 	double motorPctCmd;
 	double motorPctRaw;
 };

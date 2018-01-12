@@ -7,7 +7,6 @@
 
 #include <PWMmotor.h>
 #include "WPILib.h"
-#include "RobotUtils/RobotUtils.h"
 
 PWMmotor::PWMmotor(int number) {
 	m_PWMmotor = new Victor(number);
@@ -75,7 +74,7 @@ void PWMmotor::Disable(double speed) {
 	iComp = 0.0;
 	dComp = 0.0;
 	fComp = 0.0;
-	spdLast = speed;
+	spdErrorLast = 0.0;
 	speedError = 0.0;
 	motorPctCmd = 0.0;
 	motorPctRaw = 0.0;
@@ -87,13 +86,13 @@ void PWMmotor::Disable(double speed) {
 void PWMmotor::MaintainPID(double speedCmd, double speedAct, double timeDelta) {
 	/* Calculate error and accumulated error */
 	speedError = speedCmd - speedAct;
-	accumulatedError = accumulatedError + (speedError/1000.0);
+	accumulatedError = accumulatedError + speedError;
 
 	/* Calculated F, P, I and D components */
 	fComp = speedCmd * F_GAIN;
 	pComp = speedError * P_GAIN;
 	iComp = accumulatedError * I_GAIN;
-	dComp = (speedError / (timeDelta/1000.0)) * D_GAIN;
+	dComp = ((speedError - spdErrorLast) / (timeDelta/1000.0)) * D_GAIN;
 
 	/* Raw motor command = f + p + i + d */
 	motorPctRaw = fComp + pComp + iComp + dComp;
