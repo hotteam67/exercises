@@ -16,6 +16,7 @@ PWMmotor::PWMmotor(int number) {
 	dComp = 0.0;
 	fComp = 0.0;
 	speedError = 0.0;
+	spdErrorLast = 0.0;
 	motorPctCmd = 0.0;
 	motorPctRaw = 0.0;
 }
@@ -93,6 +94,9 @@ void PWMmotor::MaintainPID(double speedCmd, double speedAct, double timeDelta) {
 	pComp = speedError * P_GAIN;
 	iComp = accumulatedError * I_GAIN;
 	dComp = ((speedError - spdErrorLast) / (timeDelta/1000.0)) * D_GAIN;
+
+	/* Store Speed Error Last for next loops derivative calculation */
+	spdErrorLast = speedError;
 
 	/* Raw motor command = f + p + i + d */
 	motorPctRaw = fComp + pComp + iComp + dComp;
