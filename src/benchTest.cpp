@@ -1,5 +1,5 @@
 #include "WPILib.h"
-#include "RobotUtils/RobotUtils.h"
+#include "RobotUtils/HotJoystick.h"
 #include "PWMmotor.h"
 
 /* Exercise 04 uses the following I/O on the Sweet Bench:
@@ -21,7 +21,7 @@
  *
  */
 
-class benchTest: public HotBot {
+class benchTest: public IterativeRobot {
 private:
 
 	AnalogPotentiometer* m_Analog0;
