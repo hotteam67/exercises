@@ -1,7 +1,6 @@
 #include "WPILib.h"
-#include "RobotUtils/RobotUtils.h"
-#include "ctrlib/CANTalon.h"
-#include "ctrlib/PigeonImu.h"
+#include "RobotUtils/HotJoystick.h"
+#include "ctre/Phoenix.h"
 
 /* Exercise 01 is to use the joystick and motors (Talon SRX) 2, 3, 4 on the Sweet Bench
  *
@@ -19,7 +18,7 @@
  *
  */
 
-class benchTest: public HotBot {
+class benchTest: public IterativeRobot {
 private:
 
 	HotJoystick* m_driver;
