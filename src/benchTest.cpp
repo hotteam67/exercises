@@ -34,7 +34,7 @@
 class benchTest: public IterativeRobot {
 private:
 
-	CANTalon* m_CANmotor1;
+	TalonSRX* m_CANmotor1;
 	AnalogInput* m_Analog0;
 	DigitalInput* m_SwitchDIO4;
 	DigitalInput* m_LightSensor;
@@ -59,7 +59,7 @@ private:
 
 public:
 	benchTest() {
-		m_CANmotor1 = new CANTalon(1);
+		m_CANmotor1 = new TalonSRX(1);
 		m_Analog0 = new AnalogInput(0);  /* Analog Input Channel 0 */
 		m_SwitchDIO4 = new DigitalInput(4);
 		m_LightSensor = new DigitalInput(5);
@@ -134,11 +134,11 @@ public:
 
 		 /* Send speed command to motor based on motorState variable */
 		 if (motorState == 0) {
-			 m_CANmotor1->Set(0.0);
+			 m_CANmotor1->Set(ControlMode::PercentOutput, 0.0);
 		 } else if (motorState == 1 ){
-			 m_CANmotor1->Set(spdCmd);
+			 m_CANmotor1->Set(ControlMode::PercentOutput, spdCmd);
 		 } else {
-			 m_CANmotor1->Set(-spdCmd);
+			 m_CANmotor1->Set(ControlMode::PercentOutput, -spdCmd);
 		 }
 
 		 /* Preserve knowledge of previous loop button state */
