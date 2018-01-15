@@ -21,11 +21,11 @@
 
 class benchTest: public IterativeRobot {
 private:
-	PigeonImu* m_pigey;
+	PigeonIMU* m_pigey;
 	Relay* m_LED_Ring;
 	DigitalInput* m_SwitchDIO4;
 	AnalogInput* m_Analog0;
-	CANTalon* m_CANmotor4;
+	TalonSRX* m_CANmotor4;
 
 	bool switchSignal;
 	bool switchSignalOld = false;
@@ -39,8 +39,8 @@ private:
 
 public:
 	benchTest() {
-        m_CANmotor4 = new CANTalon(4);
-		m_pigey = new PigeonImu(m_CANmotor4);  /* Pigeon installed on CANTalon(4) */
+        m_CANmotor4 = new TalonSRX(4);
+		m_pigey = new PigeonIMU(m_CANmotor4);  /* Pigeon installed on CANTalon(4) */
 		m_Analog0 = new AnalogInput(0);  /* Analog Input Channel 0 */
 		m_LED_Ring = new Relay(1);
 		m_SwitchDIO4 = new DigitalInput(4);
