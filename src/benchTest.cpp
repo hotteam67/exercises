@@ -61,8 +61,8 @@ public:
 		m_EncoderMtr5 = new Encoder(2,3,true,Encoder::EncodingType::k4X);
 		m_motor5 = new PWMmotor(0);
 		m_LED_Ring = new Relay(1);
-		m_motor5->SetP(0.0005);
-		m_motor5->SetI(0.01);
+		m_motor5->SetP(0.0003);
+		m_motor5->SetI(0.00005);
 		m_motor5->SetD(0.0);
 		m_motor5->SetF(1.0 / 800.0);
 	}
