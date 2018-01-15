@@ -1,140 +1,86 @@
+/**
+ * Example demonstrating the velocity closed-loop servo.
+ * Tested with Logitech F350 USB Gamepad inserted into Driver Station]
+ *
+ * Be sure to select the correct feedback sensor using SetFeedbackDevice() below.
+ *
+ * After deploying/debugging this to your RIO, first use the left Y-stick
+ * to throttle the Talon manually.  This will confirm your hardware setup.
+ * Be sure to confirm that when the Talon is driving forward (green) the
+ * position sensor is moving in a positive direction.  If this is not the cause
+ * flip the boolean input to the SetSensorDirection() call below.
+ *
+ * Once you've ensured your feedback device is in-phase with the motor,
+ * use the button shortcuts to servo to target velocity.
+ *
+ * Tweak the PID gains accordingly.
+ */
 #include "WPILib.h"
 #include "RobotUtils/HotJoystick.h"
 #include "ctre/Phoenix.h"
+#include "Constants.h"
 
-/* Exercise 01 is to use the joystick and motors (Talon SRX) 2, 3, 4 on the Sweet Bench
- *
- * Functional Requirements:
- * 1)  All functionality shall be done in TeleOp mode.
- * 2)  Use the joystick "A" button to cycle between controlling motor 2, motor 3, motor 4, or no motor.
- * 3)  Upon initialization, the control shall default to "no motor" for safety.
- * 4)  Button presses shall be interpreted as the transition from false to true.
- * 5)  The joystick left stick, x-axis shall control the speed and direction of the active motor.
- * 6)  The x-axis of the left stick should have a deadband from -0.2 to +0.2 to allow for
- *     joystick hysteresis (i.e. not quite returning to zero when released)
- * 7)  The lower "active" region of the joystick (-1.0 -> -0.2) shall command between -1.0 and 0.0 speed.
- * 8)  The upper "active" region of the joystick (+0.2 -> +1.0) shall command between 0.0 and +1.0 speed.
- * 9)  The A Button State, Commanded Speed, and Active Motor shall be output to the dashboard.
- *
- */
-
-class benchTest: public IterativeRobot {
+class Robot: public IterativeRobot {
 private:
+	TalonSRX * _talon = new TalonSRX(3);
+	HotJoystick * m_joy = new HotJoystick(0);
+	std::string _sb;
+	int _loops = 0;
 
-	HotJoystick* m_driver;
-	CANTalon* m_CANmotor2;
-	CANTalon* m_CANmotor3;
-	CANTalon* m_CANmotor4;
-
-	bool aButton;
-	bool aButtonOld = false;
-	bool motorStTransInProcess = false;
-	float joystickRaw;
-	float spdCmd;
-
-	int motorSelect = 0;
-	     /* 0: Off (no motor)
-		    1: CANTalon2
-			2: CANTalon3
-			3: CANTalon4 */
-
-public:
-	benchTest() {
-		m_driver = new HotJoystick(0);
-		m_CANmotor2 = new CANTalon(2);
-		m_CANmotor3 = new CANTalon(3);
-		m_CANmotor4 = new CANTalon(4);
-	}
 	void RobotInit() {
+        /* first choose the sensor */
+		_talon->ConfigSelectedFeedbackSensor(FeedbackDevice::CTRE_MagEncoder_Relative, 0, 10);
+		_talon->SetSensorPhase(true);
+
+		/* set the peak and nominal outputs, 12V means full */
+		_talon->ConfigNominalOutputForward(0, kTimeoutMs);
+		_talon->ConfigNominalOutputReverse(0, kTimeoutMs);
+		_talon->ConfigPeakOutputForward(1, kTimeoutMs);
+		_talon->ConfigPeakOutputReverse(-1, kTimeoutMs);
+		/* set closed loop gains in slot0 */
+		_talon->Config_kF(kPIDLoopIdx, 0.0509, kTimeoutMs); //0.1097
+		_talon->Config_kP(kPIDLoopIdx, 0.0001, kTimeoutMs);
+		_talon->Config_kI(kPIDLoopIdx, 0.0001, kTimeoutMs);
+		_talon->Config_kD(kPIDLoopIdx, 0.0, kTimeoutMs);
 	}
-
-
-	void AutonomousInit() {
-
-	}
-
-	void AutonomousPeriodic() {
-
-	}
-
-	void TeleopInit() {
-
-	}
-
+	/**
+	 * This function is called periodically during operator control
+	 */
 	void TeleopPeriodic() {
+		/* get gamepad axis */
+		double leftYstick = m_joy->AxisLY();
+		double motorOutput = _talon->GetMotorOutputPercent();
+		/* prepare line to print */
+		_sb.append("\tout:");
+		_sb.append(std::to_string(motorOutput));
+		_sb.append("\tspd:");
+		_sb.append(std::to_string(_talon->GetSelectedSensorVelocity(kPIDLoopIdx)));
 
-		 /* Read inputs from Joystick */
-		 aButton = m_driver->ButtonA();
-		 joystickRaw = m_driver->AxisLX();  /* Uses Left Stick, X axis */
+		SmartDashboard::PutNumber("SensorVelocity", (_talon->GetSelectedSensorVelocity(kPIDLoopIdx)/4096.0 * 600.0));
 
-		 /* Deadband input, determine joystickMod */
-		 if(joystickRaw <= 0.2 && joystickRaw >= -0.2){
-			 spdCmd = 0.0;
-		 }else if(joystickRaw > 0.2){
-			 spdCmd = (joystickRaw - 0.2) * 1.25;
-		 }else{
-			 spdCmd = (joystickRaw + 0.2) * 1.25;
-		 }
+		/* while button1 is held down, closed-loop on target velocity */
+		if (m_joy->ButtonA()) {
+        	/* Speed mode */
+			/* 1500 RPM * 4096 units/rev / 600 100ms/min in either direction: velocity control is units/100ms */
+			double targetSpeed = 300.0 * 4096 / 600;
+        	_talon->Set(ControlMode::Velocity, targetSpeed); /* 1500 RPM in either direction */
 
-		 /* Process button presses */
-		 /* Look for aButton to transition from false to true */
-		 if ((aButton == true) && (aButtonOld == false)) {
-			 motorStTransInProcess = true;
-		 } else {
-			 motorStTransInProcess = false;
-		 }
-
-		 /* Use motorSelect to define speed commands to motors */
-		 if (motorStTransInProcess == true) {
-			 if (motorSelect < 3) {
-				 motorSelect++;
-			 } else {
-				 motorSelect = 0;
-			 }
-		 }
-
-		 /* Command speeds to motor controllers */
-		 switch (motorSelect) {
-		 case 0:
-			 m_CANmotor2->Set(0.0);
-			 m_CANmotor3->Set(0.0);
-			 m_CANmotor4->Set(0.0);
-			 break;
-		 case 1:
-			 m_CANmotor2->Set(spdCmd);
-			 m_CANmotor3->Set(0.0);
-			 m_CANmotor4->Set(0.0);
-			 break;
-		 case 2:
-			 m_CANmotor2->Set(0.0);
-			 m_CANmotor3->Set(spdCmd);
-			 m_CANmotor4->Set(0.0);
-			 break;
-		 case 3:
-			 m_CANmotor2->Set(0.0);
-			 m_CANmotor3->Set(0.0);
-			 m_CANmotor4->Set(spdCmd);
-			 break;
-		 }
-
-		 /* Preserve knowledge of previous loop button state */
-		 aButtonOld = aButton;
-
-		 DashboardOutput();
+			/* append more signals to print when in speed mode. */
+			_sb.append("\terrNative:");
+			_sb.append(std::to_string(_talon->GetClosedLoopError(kPIDLoopIdx)));
+			_sb.append("\ttrg:");
+			_sb.append(std::to_string(targetSpeed));
+        } else {
+			/* Percent voltage mode */
+			_talon->Set(ControlMode::PercentOutput, leftYstick);
+		}
+		/* print every ten loops, printing too much too fast is generally bad for performance */
+		if (++_loops >= 10) {
+			_loops = 0;
+			printf("%s\n",_sb.c_str());
+		}
+		_sb.clear();
 	}
-
-	void DashboardOutput() {
-		/* Writes variables to Dashboard */
-		SmartDashboard::PutBoolean("ButtonA", aButton);
-		SmartDashboard::PutNumber("joystickRaw", joystickRaw);
-		SmartDashboard::PutNumber("motorSelect", motorSelect);
-		SmartDashboard::PutNumber("SpdCmd", spdCmd);
-	}
-
-
-	void TestPeriodic() {
-	}
-
 };
 
-START_ROBOT_CLASS(benchTest)
+START_ROBOT_CLASS(Robot)
