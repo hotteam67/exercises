@@ -22,9 +22,9 @@ class benchTest: public IterativeRobot {
 private:
 
 	HotJoystick* m_driver;
-	CANTalon* m_CANmotor2;
-	CANTalon* m_CANmotor3;
-	CANTalon* m_CANmotor4;
+	TalonSRX* m_CANmotor2;
+	TalonSRX* m_CANmotor3;
+	TalonSRX* m_CANmotor4;
 
 	bool aButton;
 	bool aButtonOld = false;
@@ -41,9 +41,9 @@ private:
 public:
 	benchTest() {
 		m_driver = new HotJoystick(0);
-		m_CANmotor2 = new CANTalon(2);
-		m_CANmotor3 = new CANTalon(3);
-		m_CANmotor4 = new CANTalon(4);
+		m_CANmotor2 = new TalonSRX(2);
+		m_CANmotor3 = new TalonSRX(3);
+		m_CANmotor4 = new TalonSRX(4);
 	}
 	void RobotInit() {
 	}
@@ -96,24 +96,24 @@ public:
 		 /* Command speeds to motor controllers */
 		 switch (motorSelect) {
 		 case 0:
-			 m_CANmotor2->Set(0.0);
-			 m_CANmotor3->Set(0.0);
-			 m_CANmotor4->Set(0.0);
+			 m_CANmotor2->Set(ControlMode::PercentOutput, 0.0);
+			 m_CANmotor3->Set(ControlMode::PercentOutput, 0.0);
+			 m_CANmotor4->Set(ControlMode::PercentOutput, 0.0);
 			 break;
 		 case 1:
-			 m_CANmotor2->Set(spdCmd);
-			 m_CANmotor3->Set(0.0);
-			 m_CANmotor4->Set(0.0);
+			 m_CANmotor2->Set(ControlMode::PercentOutput, spdCmd);
+			 m_CANmotor3->Set(ControlMode::PercentOutput, 0.0);
+			 m_CANmotor4->Set(ControlMode::PercentOutput, 0.0);
 			 break;
 		 case 2:
-			 m_CANmotor2->Set(0.0);
-			 m_CANmotor3->Set(spdCmd);
-			 m_CANmotor4->Set(0.0);
+			 m_CANmotor2->Set(ControlMode::PercentOutput, 0.0);
+			 m_CANmotor3->Set(ControlMode::PercentOutput, spdCmd);
+			 m_CANmotor4->Set(ControlMode::PercentOutput, 0.0);
 			 break;
 		 case 3:
-			 m_CANmotor2->Set(0.0);
-			 m_CANmotor3->Set(0.0);
-			 m_CANmotor4->Set(spdCmd);
+			 m_CANmotor2->Set(ControlMode::PercentOutput, 0.0);
+			 m_CANmotor3->Set(ControlMode::PercentOutput, 0.0);
+			 m_CANmotor4->Set(ControlMode::PercentOutput, spdCmd);
 			 break;
 		 }
 
