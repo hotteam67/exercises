@@ -2,7 +2,6 @@
 #include "WPILib.h"
 #include "RobotUtils/HotJoystick.h"
 #include "ctre/Phoenix.h"
-#include <chrono>
 #include <stdlib.h>
 
 /* Exercise 05 uses the following I/O on the Sweet Bench:
@@ -24,7 +23,7 @@
  * 7)  Create a new class, CANmotor that accepts an integer argument at initialization
  *     to specify the CAN channel to send to the Talon.  Additionally, create a "Set" function in
  *     the CANmotor class that commands the motor speed.
- * 8)  Tune P, I, D (and maybe F) gains for responsive and accurate speed control.  Configure CANmotor
+ * 8)  Tune P, I, D and F gains for responsive and accurate speed control.  Configure CANmotor
  *     class so that gain constants can be easily tweaked in the code.
  *
  */
@@ -43,7 +42,8 @@ private:
 	bool controlMode = false;
 	double actSpdRPM;
 	double motorCurrent;
-
+	double rotations;
+	double spdNative;
 
 public:
 	benchTest() {
@@ -51,8 +51,6 @@ public:
 		AnalogInput* ai = new AnalogInput(0);
 		m_Analog0 = new AnalogPotentiometer(ai, 3600, 0);
 		m_motor3 = new CANmotor(3);
-
-
 	}
 	void RobotInit() {
 	}
@@ -72,7 +70,6 @@ public:
 
 	void TeleopPeriodic() {
 
-
 		/* Read inputs */
 		potentio = m_Analog0->Get();
 		switchState = !m_SwitchDIO4->Get();
@@ -81,9 +78,9 @@ public:
 		spdCmd = potentio;
 
 		/* Get Shaft Speed and motor current */
-		actSpdRPM = m_motor3->GetSpeed();
+		actSpdRPM = m_motor3->GetSpeedRPM();
 		motorCurrent = m_motor3->GetOutputCurrent();
-
+		spdNative = m_motor3->GetSpeedNative();
 
 		/* Change control mode if switch (DIO4) is pressed */
 		if ((switchState) && (!switchStateOld)) {
@@ -97,12 +94,11 @@ public:
 			m_motor3->Disable();
 		}
 
-
 		/* remember old switch state */
 		switchStateOld = switchState;
 
-
 		/* Output values to the dashboard */
+		rotations = (m_motor3->GetPosition() / 4096.0);  /* divide by number of pulses/rev for total revolutions. */
 		DashboardOutput();
 	}
 
@@ -114,6 +110,11 @@ public:
 		SmartDashboard::PutNumber("potentio", potentio);
 		SmartDashboard::PutNumber("actSpdRPM", actSpdRPM);
 		SmartDashboard::PutNumber("motorCurrent", motorCurrent);
+		SmartDashboard::PutNumber("PositionTicks", m_motor3->GetPosition());
+		SmartDashboard::PutNumber("Rotations", rotations);
+		SmartDashboard::PutNumber("spdNative", spdNative);
+		SmartDashboard::PutNumber("MotorOutputPct", m_motor3->GetMotorOutput());
+		SmartDashboard::PutNumber("SpeedError", m_motor3->GetSpeedErrorRPM());
 	}
 
 
