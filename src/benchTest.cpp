@@ -1,48 +1,42 @@
 #include "WPILib.h"
-#include "RobotUtils/HotJoystick.h"
 #include "ctre/Phoenix.h"
 #include "stdlib.h"
+#include <chrono>
 
-/* Exercise 02 uses the PigeonIMU, DIO(4), analog potentiometer(0) and the LED light ring on the Sweet Bench
- * The goal of this exercise is to create a motion detection algorithm that will light the LED
- * ring if the IMU moves in any direction.  The motion detection tolerance will be defined by the
- * potentiometer, and the Pigeon angles can be zeroed with the DIO pushbutton.
+/* Exercise 07 uses the PigeonIMU and the DIO(4) on the Sweet Bench
+ * The goal of this exercise is to create a position estimator using the measured accelerations
+ * from the Pigeon IMU and integrating to find velocity and position.
  *
  * Functional Requirements:
  * 1)  All functionality shall be done in TeleOp mode.
- * 2)  The yaw, pitch and roll of the Pigeon IMU shall be continuously monitored.
- * 3)  If the change in yaw, pitch or roll of the Pigeon moves outside a deadband (from
- *     the zero point) in any direction, an alarm (LED ring) shall be triggered.
- * 4)  The size of the deadband can be calibrated using the potentiometer with the full
- *     scale of the analog potentiometer representing a deadband of 90 degrees.
- * 5)  Pressing the DIO pushbutton will effectively "zero" the Pigeon.
+ * 2)  The x, y and z accelerations shall be continuously measured in in/sec^2
+ * 3)  Using the accelerations in all 3 axes, the x, y, and z velocities shall be calculated in in/sec
+ * 4)  Using the velocities in all 3 axes, the x, y, and z positions shall be calculated in inches
+ * 5)  Pressing the DIO pushbutton will effectively "zero" the Pigeon and reset the velocities and positions.
  *
  */
 
 class benchTest: public IterativeRobot {
 private:
 	PigeonIMU* m_pigey;
-	Relay* m_LED_Ring;
 	DigitalInput* m_SwitchDIO4;
-	AnalogInput* m_Analog0;
 	TalonSRX* m_CANmotor4;
 
 	bool switchSignal;
 	bool switchSignalOld = false;
-	bool alarmActive;
-	double deadband;
-	double angle[3];
-	double zeroAngle[3] = {0.0, 0.0, 0.0};
-	double angleIMU[3];  /* yaw, pitch and roll angles in degrees */
-
-	float pot1;
+	double zeroAccel[3];
+	double currentAccel[3];
+	double velocity[3] = {0.0, 0.0, 0.0};
+	double position[3] = {0.0, 0.0, 0.0};
+	int16_t accelerometer[3];
+	double timeDelta = 0.0; /* milliseconds */
+	std::chrono::time_point<std::chrono::high_resolution_clock> timeNow = std::chrono::high_resolution_clock::now();
+	std::chrono::time_point<std::chrono::high_resolution_clock> timeLast = std::chrono::high_resolution_clock::now();
 
 public:
 	benchTest() {
         m_CANmotor4 = new TalonSRX(4);
 		m_pigey = new PigeonIMU(m_CANmotor4);  /* Pigeon installed on CANTalon(4) */
-		m_Analog0 = new AnalogInput(0);  /* Analog Input Channel 0 */
-		m_LED_Ring = new Relay(1);
 		m_SwitchDIO4 = new DigitalInput(4);
 	}
 	void RobotInit() {
@@ -66,40 +60,34 @@ public:
 		 /* Read input from DIO4 - pushbutton switch */
 		 switchSignal = !m_SwitchDIO4->Get();
 
-		 /* Read potentiometer inputs from Analog0 and calculate deadband */
-		 pot1 = m_Analog0->GetValue();  /* 0 - 3939 counts */
-		 deadband = (pot1 / 3939) * 90;  /* Full range of Pot1 = 90 degrees */
+		 /* Read the Pigeon IMU for Acceleration */
+		 m_pigey->GetBiasedAccelerometer(accelerometer);
 
-		 /* Read the Pigeon IMU for Yaw, Pitch, Roll */
-		 m_pigey->GetYawPitchRoll(angleIMU);
-
-		 /* Check to see if switch is has been pressed to trigger gyro reset */
+		 /* Check to see if switch is has been pressed to trigger accelerometer reset */
+		 /* Note:  1 unit of acceleration from the Pigeon = (1/42.43521) in/sec^2 of acceleration */
 		 if ((switchSignal == true) && (switchSignalOld == false)) {
-			 zeroAngle[0] = angleIMU[0];
-			 zeroAngle[1] = angleIMU[1];
-			 zeroAngle[2] = angleIMU[2];
+			 for (int i = 0; i < 3; i++) {
+				 zeroAccel[i] = (double)accelerometer[i] / 42.43521;
+				 velocity[i] = 0.0;
+				 position[i] = 0.0;
+			 }
 		 }
 
-		 /* Measure the rotation from the zeroAngle */
-		 angle[0] = angleIMU[0] - zeroAngle[0];
-         angle[1] = angleIMU[1] - zeroAngle[1];
-         angle[2] = angleIMU[2] - zeroAngle[2];
+		 /* Measure the acceleration and compensate for zeroing */
+		 currentAccel[0] = ((double)accelerometer[0] / 42.43521) - zeroAccel[0];
+		 currentAccel[1] = ((double)accelerometer[1] / 42.43521) - zeroAccel[1];
+		 currentAccel[2] = ((double)accelerometer[2] / 42.43521) - zeroAccel[2];
 
-         /* Determine if Pigeon has moved more than the deadband. */
-         if ((abs(angle[0]) > deadband) ||
-             (abs(angle[1]) > deadband) ||
-			 (abs(angle[2]) > deadband)) {
-        	 alarmActive = true;
-         } else {
-        	 alarmActive = false;
-         }
+		 /* Read clock for loop time. */
+		 timeNow = std::chrono::high_resolution_clock::now();
+		 timeDelta = std::chrono::duration_cast<std::chrono::milliseconds>(timeNow-timeLast).count();
+		 timeLast = timeNow;
 
-		 /* Send LED command to relay */
-         if (alarmActive) {
-        	 m_LED_Ring->Set(Relay::Value::kForward);
-         } else {
-        	 m_LED_Ring->Set(Relay::Value::kOff);
-         }
+		 /* Integrate to find velocity and position for each axis of acceleration */
+		 for (int i = 0; i < 3; i++) {
+			 velocity[i] += currentAccel[i] * (timeDelta/1000.0);
+			 position[i] += velocity[i] * (timeDelta/1000.0);
+		 }
 
 		 /* Remember the switch state for next loop */
 		 switchSignalOld = switchSignal;
@@ -110,12 +98,19 @@ public:
 
 	void DashboardOutput() {
 		/* Writes variables to Dashboard */
-		SmartDashboard::PutBoolean("switchSignal", switchSignal);
-		SmartDashboard::PutBoolean("alarmActive", alarmActive);
-		SmartDashboard::PutNumber("Angle0 (Yaw)", angle[0]);
-		SmartDashboard::PutNumber("Angle1 (Pitch)", angle[1]);
-		SmartDashboard::PutNumber("Angle2 (Roll)", angle[2]);
-		SmartDashboard::PutNumber("Deadband", deadband);
+		SmartDashboard::PutNumber("timeDelta", timeDelta);
+		SmartDashboard::PutNumber("raw x accel", (double)accelerometer[0] / 42.43521);
+		SmartDashboard::PutNumber("raw y accel", (double)accelerometer[1] / 42.43521);
+		SmartDashboard::PutNumber("raw z accel", (double)accelerometer[2] / 42.43521);
+		SmartDashboard::PutNumber("zeroed x accel", currentAccel[0]);
+		SmartDashboard::PutNumber("zeroed y accel", currentAccel[1]);
+		SmartDashboard::PutNumber("zeroed z accel", currentAccel[2]);
+		SmartDashboard::PutNumber("velocity x", velocity[0]);
+		SmartDashboard::PutNumber("velocity y", velocity[1]);
+		SmartDashboard::PutNumber("velocity z", velocity[2]);
+		SmartDashboard::PutNumber("position x", position[0]);
+		SmartDashboard::PutNumber("position y", position[1]);
+		SmartDashboard::PutNumber("position z", position[2]);
 	}
 
 	void TestPeriodic() {
