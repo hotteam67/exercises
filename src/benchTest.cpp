@@ -50,7 +50,7 @@ public:
 		m_driver = new HotJoystick(0);
 		m_leftFront = new TalonSRX(7);
 		m_leftMiddle = new TalonSRX(5);
-		m_leftRear = new TalonSRX(6);
+		m_leftRear = new TalonSRX(9);
 		m_rightFront = new TalonSRX(2);
 		m_rightMiddle = new TalonSRX(4);
 		m_rightRear = new TalonSRX(3);
