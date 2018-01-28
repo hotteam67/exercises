@@ -37,11 +37,16 @@ public:
 	MotionProfileExample _example;
 
 	/** joystick for testing */
-	Joystick _joy;
+	HotJoystick _joy;
 
-	/** cache last buttons so we can detect press events.  In a command-based project you can leverage the on-press event
-	 * but for this simple example, lets just do quick compares to prev-btn-states */
-	bool _btnsLast[10] = { false, false, false, false, false, false, false, false, false, false };
+	bool aButton;
+	bool aButtonOld = false;
+	bool bButton;
+	bool bButtonOld = false;
+	double rotations = 0.0;
+	double velocityRPM;
+	double velNative;
+	double posNative;
 
 	Robot() :
 			_talon(Constants::kTalonID), _example(_talon), _joy(0) {
@@ -49,16 +54,17 @@ public:
 
 	/** run once after booting/enter-disable */
 	void DisabledInit() {
-		_talon.ConfigSelectedFeedbackSensor(FeedbackDevice::QuadEncoder, 0,
+		_talon.ConfigSelectedFeedbackSensor(FeedbackDevice::CTRE_MagEncoder_Relative, 0,
 				kTimeoutMs);
 		_talon.SetSensorPhase(true);
+		_talon.SetNeutralMode(Brake);
 		_talon.ConfigNeutralDeadband(Constants::kNeutralDeadbandPercent * 0.01,
 				Constants::kTimeoutMs);
 
-		_talon.Config_kF(0, 0.076, kTimeoutMs);
-		_talon.Config_kP(0, 2.000, kTimeoutMs);
-		_talon.Config_kI(0, 0.0, kTimeoutMs);
-		_talon.Config_kD(0, 20.0, kTimeoutMs);
+		_talon.Config_kF(0, 0.0525, kTimeoutMs);
+		_talon.Config_kP(0, 0.0004, kTimeoutMs);
+		_talon.Config_kI(0, 0.000001, kTimeoutMs);
+		_talon.Config_kD(0, 0.0, kTimeoutMs);
 
 		_talon.ConfigMotionProfileTrajectoryPeriod(10, Constants::kTimeoutMs); //Our profile uses 10 ms timing
 		/* status 10 provides the trajectory target for motion profile AND motion magic */
@@ -68,29 +74,21 @@ public:
 	/**  function is called periodically during operator control */
 	void TeleopPeriodic() {
 		/* get buttons */
-		bool btns[10];
-		for (unsigned int i = 1; i < 10; ++i)
-			btns[i] = _joy.GetRawButton(i);
-
-		/* get the left joystick axis on Logitech Gampead */
-		double leftYjoystick = -1 * _joy.GetY(); /* multiple by -1 so joystick forward is positive */
+		aButton = _joy.ButtonA();
+		bButton = _joy.ButtonB();
 
 		/* call this periodically, and catch the output.  Only apply it if user wants to run MP. */
 		_example.control();
 		_example.PeriodicTask();
 
-		if (btns[5] == false) { /* Check button 5 (top left shoulder on the logitech gamead). */
-			/*
-			 * If it's not being pressed, just do a simple drive.  This
-			 * could be a RobotDrive class or custom drivetrain logic.
-			 * The point is we want the switch in and out of MP Control mode.*/
+		if (aButton == false) { /* Check aButton to enter Motion Profile Mode */
+			/* If it's not being pressed, just turn off motor. */
 
-			/* button5 is off so straight drive */
-			_talon.Set(ControlMode::PercentOutput, 1.0 * leftYjoystick);
+			_talon.Set(ControlMode::PercentOutput, 0.0);
 
 			_example.reset();
 		} else {
-			/* Button5 is held down so switch to motion profile control mode => This is done in MotionProfileControl.
+			/* ButtonA is held down so switch to motion profile control mode => This is done in MotionProfileControl.
 			 * When we transition from no-press to press,
 			 * pass a "true" once to MotionProfileControl.
 			 */
@@ -99,11 +97,11 @@ public:
 
 			_talon.Set(ControlMode::MotionProfile, setOutput);
 
-			/* if btn is pressed and was not pressed last time,
+			/* if bButton is pressed and was not pressed last time,
 			 * In other words we just detected the on-press event.
 			 * This will signal the robot to start a MP */
-			if ((btns[6] == true) && (_btnsLast[6] == false)) {
-				/* user just tapped button 6 */
+			if ((bButton == true) && (bButtonOld == false)) {
+				/* user just tapped bButton */
 
 				//------------ We could start an MP if MP isn't already running ------------//
 				_example.start();
@@ -111,10 +109,31 @@ public:
 		}
 
 		/* save buttons states for on-press detection */
-		for (int i = 1; i < 10; ++i)
-			_btnsLast[i] = btns[i];
+		aButtonOld = aButton;
+		bButtonOld = bButton;
 
+		/* Writes variables to Dashboard */
+		rotations = (_talon.GetSelectedSensorPosition(0) / 4096.0);
+		velocityRPM = (_talon.GetSelectedSensorVelocity(0) * (600.0/4096.0));
+		velNative = _talon.GetSelectedSensorVelocity(0);
+		posNative = _talon.GetSelectedSensorPosition(0);
+		DashboardOutput();
 	}
+
+
+
+	void DashboardOutput() {
+		/* Writes variables to Dashboard */
+		SmartDashboard::PutBoolean("ButtonA", aButton);
+		SmartDashboard::PutBoolean("ButtonB", bButton);
+		SmartDashboard::PutNumber("MotorOutputPct", _talon.GetMotorOutputPercent());
+		SmartDashboard::PutNumber("rotationsRevs", rotations);
+		SmartDashboard::PutNumber("velocityRPM", velocityRPM);
+		SmartDashboard::PutNumber("velNative", velNative);
+		SmartDashboard::PutNumber("posNative", posNative);
+	}
+
+
 	/**  function is called periodically during disable */
 	void DisabledPeriodic() {
 		/* it's generally a good idea to put motor controllers back

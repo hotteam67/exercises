@@ -3,10 +3,7 @@
 enum Constants {
 
 	/** which Talon on CANBus*/
-	kTalonID = 0,
-
-	/* example Victor SPX follower */
-	kVictorFollower = 0,
+	kTalonID = 3,
 
 	/**
 	 * How many sensor units per rotation.
@@ -42,5 +39,5 @@ enum Constants {
 	/**
 	 * Motor deadband, set to 1%.
 	 */
-	kNeutralDeadbandPercent = 1,
+	kNeutralDeadbandPercent = 5,
 };
