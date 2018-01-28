@@ -23,7 +23,7 @@
  * [1] Calling pushMotionProfileTrajectory() continuously while the Talon executes the motion profile, thereby keeping it going indefinitely.
  * [2] Instead of setting the sensor position to zero at the start of each MP, the program could offset the MP's position based on current position. 
  */
-#include "Instrumentation.h"
+
 #include "MotionProfile.h"
 #include "WPILib.h"
 #include "Constants.h"
@@ -157,7 +157,6 @@ public:
 				 * something is wrong. Talon is not present, unplugged, breaker
 				 * tripped
 				 */
-				Instrumentation::OnNoProgress();
 			} else {
 				--_loopTimeout;
 			}
@@ -237,9 +236,6 @@ public:
 			_heading = _talon.GetActiveTrajectoryHeading();
 			_pos = _talon.GetActiveTrajectoryPosition();
 			_vel = _talon.GetActiveTrajectoryVelocity();
-
-			/* printfs and/or logging */
-			Instrumentation::Process(_status, _pos, _vel, _heading);
 		}
 	}
 	/**
@@ -274,8 +270,6 @@ public:
 
 		/* did we get an underrun condition since last time we checked ? */
 		if (_status.hasUnderrun) {
-			/* better log it so we know about it */
-			Instrumentation::OnUnderrun();
 			/*
 			 * clear the error. This is what seperates "has underrun" from
 			 * "is underrun", because the former is cleared by the application.

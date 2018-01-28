@@ -21,7 +21,7 @@
  * 
  * Release button5 to allow OpenVoltage control with left y axis.
  */
-#include "Instrumentation.h"
+
 #include "WPILib.h"
 #include "MotionProfileExample.h"
 #include "ctre/Phoenix.h"
@@ -47,6 +47,13 @@ public:
 	double velocityRPM;
 	double velNative;
 	double posNative;
+	double targPos;
+	double targVel;
+	double topBufferCnt;
+	double topBufferRem;
+	double btmBufferCnt;
+	bool isLast;
+	MotionProfileStatus profileStatus;
 
 	Robot() :
 			_talon(Constants::kTalonID), _example(_talon), _joy(0) {
@@ -61,7 +68,7 @@ public:
 		_talon.ConfigNeutralDeadband(Constants::kNeutralDeadbandPercent * 0.01,
 				Constants::kTimeoutMs);
 
-		_talon.Config_kF(0, 0.0525, kTimeoutMs);
+		_talon.Config_kF(0, 0.0515, kTimeoutMs);
 		_talon.Config_kP(0, 0.0004, kTimeoutMs);
 		_talon.Config_kI(0, 0.000001, kTimeoutMs);
 		_talon.Config_kD(0, 0.0, kTimeoutMs);
@@ -80,6 +87,15 @@ public:
 		/* call this periodically, and catch the output.  Only apply it if user wants to run MP. */
 		_example.control();
 		_example.PeriodicTask();
+
+		/* display variables about motion profile in Talon */
+		_talon.GetMotionProfileStatus(profileStatus);
+		topBufferCnt = profileStatus.topBufferCnt;
+		topBufferRem = profileStatus.topBufferRem;
+		btmBufferCnt = profileStatus.btmBufferCnt;
+		isLast = profileStatus.isLast;
+		targPos = (_talon.GetActiveTrajectoryPosition() / 4096.0);          /* Convert to Revolutions */
+		targVel = (_talon.GetActiveTrajectoryVelocity() * (600.0/4096.0));  /* Convert to RPM */
 
 		if (aButton == false) { /* Check aButton to enter Motion Profile Mode */
 			/* If it's not being pressed, just turn off motor. */
@@ -126,11 +142,15 @@ public:
 		/* Writes variables to Dashboard */
 		SmartDashboard::PutBoolean("ButtonA", aButton);
 		SmartDashboard::PutBoolean("ButtonB", bButton);
+		SmartDashboard::PutBoolean("isLast", isLast);
 		SmartDashboard::PutNumber("MotorOutputPct", _talon.GetMotorOutputPercent());
 		SmartDashboard::PutNumber("rotationsRevs", rotations);
 		SmartDashboard::PutNumber("velocityRPM", velocityRPM);
-		SmartDashboard::PutNumber("velNative", velNative);
-		SmartDashboard::PutNumber("posNative", posNative);
+		SmartDashboard::PutNumber("topBufferCnt", topBufferCnt);
+		SmartDashboard::PutNumber("topBufferRem", topBufferRem);
+		SmartDashboard::PutNumber("btmBufferCnt", btmBufferCnt);
+		SmartDashboard::PutNumber("targPos", targPos);
+		SmartDashboard::PutNumber("targVel", targVel);
 	}
 
 
