@@ -2,6 +2,9 @@
 #include "RobotUtils/HotJoystick.h"
 #include "ctre/Phoenix.h"
 #include <chrono>
+#include <iostream>
+
+
 
 /* Exercise 03 uses the Potentiometer (AnalogIn0), Pushbutton Switch (DIO4),
  * light sensor (DIO5) and motor 1 (CANTalon1) on the Sweet Bench.
@@ -31,42 +34,71 @@
  *
  */
 
+using namespace std;
+
+enum State {
+	Reset,
+	Prep,
+	Test
+};
+
 class benchTest: public IterativeRobot {
 private:
 
-	TalonSRX* m_CANmotor1;
-	AnalogInput* m_Analog0;
-	DigitalInput* m_SwitchDIO4;
-	DigitalInput* m_LightSensor;
+	TalonSRX* Motor3;
+	TalonSRX* Motor1;
+	TalonSRX* Motor2;
+	Encoder* Encode;
 
-	bool switchSignal;
-	bool switchSignalOld = false;
-	bool lightSignal;
-	bool lightSignalOld;
-	float pot1;
-	float spdCmd;
-	std::chrono::time_point<std::chrono::high_resolution_clock> timeNow = std::chrono::high_resolution_clock::now();
-	std::chrono::time_point<std::chrono::high_resolution_clock> timeLast = std::chrono::high_resolution_clock::now();
-	double timeDelta = 0.0; /* milliseconds */
-	double speedRPM = 0.0; /* motor speed calculation in rpm */
+	AnalogInput* RawUltra;
+	DigitalInput* m_SwitchDIO4;
+	PigeonIMU * _pidgey;
+	TalonSRX* PigionTalon;
+	HotJoystick* m_driver;
+
+	double current;
+	double Xaxis[2];
+	double Yaxis[3];
+	double Cal[2];
+	double CalB[50];
+	double CalAv;
+	int16_t ba_xyz[3];
+	bool button;
+	bool Runonce;
+	int TestCase=0;
+	State state;
+	int MotorTest;
+	int count=0;
+	double encoder;
+	double NormalValue;
+
+
+
 
 	int motorState = 0;
-	      /* motorState = 0 : motor OFF
-	       * motorState = 1 : FORWARD
-	       * motorState = 2 : REVERSE
-	       */
+	/* motorState = 0 : motor OFF
+	 * motorState = 1 : FORWARD
+	 * motorState = 2 : REVERSE
+	 */
+	BuiltInAccelerometer accel;
 
 
 public:
 	benchTest() {
-		m_CANmotor1 = new TalonSRX(1);
-		m_Analog0 = new AnalogInput(0);  /* Analog Input Channel 0 */
+		Motor3 = new TalonSRX(3);
+		Motor1 = new TalonSRX(1);
+		Motor2 = new TalonSRX(2);
+		PigionTalon = new TalonSRX(1);
+		RawUltra = new AnalogInput(1);  /* Analog Input Channel 0 */
 		m_SwitchDIO4 = new DigitalInput(4);
-		m_LightSensor = new DigitalInput(5);
-		lightSignalOld = m_LightSensor->Get();
+		_pidgey = new PigeonIMU(PigionTalon); /* Pigeon is ribbon cabled to the specified CANTalon. */
+		m_driver = new HotJoystick(0);
+
+
 
 	}
 	void RobotInit() {
+
 	}
 
 
@@ -80,88 +112,180 @@ public:
 
 	void TeleopInit() {
 
+		Cal[0] = 0;
+
 	}
 
 	void TeleopPeriodic() {
-		 /* Read input from DIO4 - pushbutton switch */
-		 switchSignal = !m_SwitchDIO4->Get();
-
-		 /* Read input from DIO5 - light sensor */
-		 lightSignal = m_LightSensor->Get();;
-
-		 /* Read potentiometer inputs from Analog0 */
-		 pot1 = m_Analog0->GetValue();
-		 spdCmd = (pot1 - 15.0) / 3900.0;
-		 if (spdCmd < 0.0) {
-			 spdCmd = 0.0;
-		 } else if (spdCmd > 1.0) {
-			 spdCmd = 1.0;
-		 }
-
-		 /* Read clock for loop time. */
-		 timeNow = std::chrono::high_resolution_clock::now();
-		 timeDelta = std::chrono::duration_cast<std::chrono::milliseconds>(timeNow-timeLast).count();
 
 
-		 /* Look for switchSignal (DIO4) to transition from false to true */
-		 if ((switchSignal == true) && (switchSignalOld == false)) {
-			 if (motorState == 2) {
-				 motorState = 0;
-			 } else {
-				 motorState++;
-			 }
 
-		 }
 
-		 /* Look for lightSignal (DIO5) to transition from false to true */
-		 /* Calculate speed based on knowledge that the variable timeDelta will measure
-		  * the number of milliseconds it takes for the motor to spin 1/2 revolution.
-		  * Therefore, the speed in revs/min = 30,000/timeDelta.  Note - this calculation can
-		  * really be corrupted if motor speeds are fast.  Knowing the loop rate of the
-		  * RoboRIO is 20 ms, the fasted possible speed to detect is 750 rpm.  Anything over
-		  * that will be corrupted.
-		  */
-		 if ((lightSignal == true) && (lightSignalOld == false)) {
-			 timeNow = std::chrono::high_resolution_clock::now();
-			 timeDelta = std::chrono::duration_cast<std::chrono::milliseconds>(timeNow-timeLast).count();
-			 timeLast = timeNow;
-			 if (timeDelta > 0.0) {
-				 speedRPM = (30000.0 / timeDelta);
-			 } else {
-				 speedRPM = 0.0;
-			 }
-		 }
 
-		 /* Send speed command to motor based on motorState variable */
-		 if (motorState == 0) {
-			 m_CANmotor1->Set(ControlMode::PercentOutput, 0.0);
-		 } else if (motorState == 1 ){
-			 m_CANmotor1->Set(ControlMode::PercentOutput, spdCmd);
-		 } else {
-			 m_CANmotor1->Set(ControlMode::PercentOutput, -spdCmd);
-		 }
 
-		 /* Preserve knowledge of previous loop button state */
-		 switchSignalOld = switchSignal;
-		 lightSignalOld = lightSignal;
+		Motor3->Set(ControlMode::PercentOutput, -0.2);
+		current = Motor1->GetOutputCurrent();
+		SmartDashboard::PutNumber("Current",current);
 
-		 DashboardOutput();
+
+
+		if(current <= 0.750){
+			cout<<"Motor #3 Passed"<<endl;
+		}else{
+			cout<<"Warning: Fault in motor #3 "<<endl;
+		}
+
+		/**
+		_pidgey->GetBiasedAccelerometer(ba_xyz);
+
+		if(m_driver->ButtonB()){
+
+		for(int i=0; i<50; i++){
+			CalB[i] = ba_xyz[0];
+		}
+		for(int i=0; i<50; i++){
+			CalAv = CalAv+CalB[i];
+		}
+		Cal[0] = CalAv/50;
+		}
+		Xaxis[1] = ((accel.GetX())-Cal[1])*386.0885826772;
+		Xaxis[0] = ((ba_xyz[0])-Cal[0])/42.43521;
+
+
+
+
+		cout<<"Cool it worked"<<endl;
+		 */
+
+
+
+		SmartDashboard::PutNumber("Current2",CalAv);
+
+
+		void DashboardOutput();
+
+		/*
+		SmartDashboard::PutNumber("acelXRIO",Xaxis[1]);
+		SmartDashboard::PutNumber("acelXPIDGY",Xaxis[0]);
+		SmartDashboard::PutNumber("CalXPIDGY",Cal[0]);
+		 */
+
+
 	}
 
 	void DashboardOutput() {
-		/* Writes variables to Dashboard */
-		SmartDashboard::PutBoolean("switchSignal", switchSignal);
-		SmartDashboard::PutBoolean("lightSignal", lightSignal);
-        SmartDashboard::PutNumber("timeDelta", timeDelta);
-        SmartDashboard::PutNumber("speedRPM", speedRPM);
-		SmartDashboard::PutNumber("motorState", motorState);
-		SmartDashboard::PutNumber("SpdCmd", spdCmd);
-		SmartDashboard::PutNumber("Pot1", pot1);
+
+
+
 	}
 
+
+
+	void TestInit(){
+
+		state = Reset;
+		TestCase = 0;
+	}
+
+	void EncReset(){
+
+	}
 
 	void TestPeriodic() {
+
+
+		switch(state) {
+		case Reset:
+
+			Motor1->Set(ControlMode::PercentOutput, 0);
+			Motor3->Set(ControlMode::PercentOutput, 0);
+
+
+			count = count+1;
+			if(count>150){
+				count = 0;
+				state = Prep;
+				TestCase = TestCase+1;
+				EncReset();
+			}
+			break;
+		case Prep:
+
+			if(TestCase == 1) Motor1->Set(ControlMode::PercentOutput, -0.2);
+			if(TestCase == 3) Motor3->Set(ControlMode::PercentOutput, -0.2);
+
+			count = count+1;
+			if(count>100){
+				count = 0;
+				state = Test;
+			}
+			break;
+		case Test:
+
+			switch(TestCase){
+			case 1:
+			{
+				//Read Motor current here
+				current = Motor1->GetOutputCurrent();
+				//Read encoder value here
+				encoder = Motor1->GetSelectedSensorPosition(0);
+				//Normalvalue is just the number put for safe operating current and is a placeholder
+				NormalValue = 0.750;
+				if(current == 0 && encoder <= 100){
+					cout << "Warning: Motor1 Power Disconnect likely"<<endl;
+				}else if(current >= NormalValue+50 && encoder <= 100){
+					cout << "Warning: Probable Motor Stall Detected In Motor1 Disconnect Motor1 Immediately"<<endl;
+				}else if(current <= NormalValue+50 && current >= NormalValue-50 && encoder <=100){
+					cout << "Motor1 Passed Test"<<endl;
+				}else if(current <= NormalValue+50 && current >= NormalValue-50 && encoder >=100){
+					cout << "Motor1 Passed Test"<<endl;
+				}else{
+					//This should never happen but if it does I want to know
+					cout << "Warning:Testing Error Motor# Did Not Meet Any Testing Criteria"<<endl;
+				}
+				state = Reset;
+				break;
+			}
+			case 2:
+			{
+				state = Reset;
+				break;
+			}
+			break;
+			case 3:
+			{
+				//Read Motor current here
+				current = Motor3->GetOutputCurrent();
+				//Read encoder value here
+				encoder = Motor3->GetSelectedSensorPosition(0);
+				//Normalvalue is just the number put for safe operating current and is a placeholder
+				NormalValue = 0.750;
+				if(current == 0 && encoder <= 100){
+					cout << "Warning: Motor3 Power Disconnect likely"<<endl;
+				}else if(current >= NormalValue+50 && encoder <= 100){
+					cout << "Warning: Probable Motor Stall Detected In Motor3 Disconnect Motor3 Immediately"<<endl;
+				}else if(current <= NormalValue+50 && current >= NormalValue-50 && encoder <=100){
+					cout << "Warning: Encoder Error Detected In Motor3"<<endl;
+				}else if(current <= NormalValue+50 && current >= NormalValue-50 && encoder >=100){
+					cout << "Motor3 Passed Test"<<endl;
+				}else{
+					//This should never happen but if it does I want to know
+					cout << "Warning:Testing Error Motor# Did Not Meet Any Testing Criteria"<<endl;
+				}
+
+				state = Reset;
+				break;
+			}
+
+
+		}
+
+		}
 	}
+
+
+	//for opmode
+
 };
 
 START_ROBOT_CLASS(benchTest)
