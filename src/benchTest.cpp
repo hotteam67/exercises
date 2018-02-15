@@ -75,7 +75,9 @@ private:
 	State state;
 	int MotorTest;
 	int count=0;
-	double encoder=0;
+	int Lencoder;
+	int Rencoder;
+	double NormVal[10];
 
 	double NormalValue;
 	double Range;
@@ -122,6 +124,7 @@ public:
 
 	void AutonomousPeriodic() {
 
+
 	}
 
 	void TeleopInit() {
@@ -145,9 +148,9 @@ public:
 		//MotorL3->Set(ControlMode::PercentOutput, 1);
 
 		current = MotorL2->GetOutputCurrent();
-		encoder = LeftEnc->GetSelectedSensorPosition(0);
+		Lencoder = LeftEnc->GetSelectedSensorPosition(0);
 		SmartDashboard::PutNumber("Current",current);
-		SmartDashboard::PutNumber("LEncoder",encoder);
+		SmartDashboard::PutNumber("LEncoder",Lencoder);
 
 
 
@@ -161,18 +164,32 @@ public:
 		TestCase = 0;
 		for(int i=0;i<10;i++){
 			cout<<" "<<endl;
-
 		}
+		NormVal[1] = 16;
+		NormVal[2] = 16;
+		NormVal[3] = 16;
+		NormVal[4] = 16;
+		NormVal[5] = 16;
+		NormVal[6] = 16;
 	}
 
 
-	void MotorStop(){
+	void MotorBrake(){
 		MotorR1->SetNeutralMode(Brake);
 		MotorR2->SetNeutralMode(Brake);
 		MotorR3->SetNeutralMode(Brake);
 		MotorL1->SetNeutralMode(Brake);
 		MotorL2->SetNeutralMode(Brake);
 		MotorL3->SetNeutralMode(Brake);
+	}
+
+	void MotorStop(){
+		MotorR1->Set(ControlMode::PercentOutput, 0);
+		MotorR2->Set(ControlMode::PercentOutput, 0);
+		MotorR3->Set(ControlMode::PercentOutput, 0);
+		MotorL1->Set(ControlMode::PercentOutput, 0);
+		MotorL2->Set(ControlMode::PercentOutput, 0);
+		MotorL3->Set(ControlMode::PercentOutput, 0);
 	}
 
 	void MotorCoast(){
@@ -186,52 +203,54 @@ public:
 	void EncoderReset(){
 		RightEnc->SetSelectedSensorPosition(0,0,0);
 		LeftEnc->SetSelectedSensorPosition(0,0,0);
-		encoder = 0;
+		Lencoder = 0;
+		Rencoder = 0;
+	}
+	void EncRead(){
+		Rencoder = RightEnc->GetSelectedSensorPosition(0);
+		Lencoder = LeftEnc->GetSelectedSensorPosition(0);
 	}
 
 	void TestPeriodic() {
 
 
+
 		switch(state) {
 		case Reset:
 
-			MotorStop();
-
-			MotorR1->Set(ControlMode::PercentOutput, 0);
-			MotorR2->Set(ControlMode::PercentOutput, 0);
-			MotorR3->Set(ControlMode::PercentOutput, 0);
-			MotorL1->Set(ControlMode::PercentOutput, 0);
-			MotorL2->Set(ControlMode::PercentOutput, 0);
-			MotorL3->Set(ControlMode::PercentOutput, 0);
-
+			MotorCoast();
+			MotorBrake();
 
 			count = count+1;
 			if(count>75){
 				count = 0;
 				state = Prep;
 				TestCase = TestCase+1;
-				SmartDashboard::PutNumber("Encoder",encoder);
+				SmartDashboard::PutNumber("LEncoder",Lencoder);
 				SmartDashboard::PutNumber("Current",current);
 				EncoderReset();
 			}
+
 			break;
 		case Prep:
 			MotorCoast();
 			if(TestCase == 1) MotorR1->Set(ControlMode::PercentOutput, 1);
 			if(TestCase == 2) MotorL1->Set(ControlMode::PercentOutput, 1);
 			if(TestCase == 3) MotorR2->Set(ControlMode::PercentOutput, 1);
-			if(TestCase == 4) MotorL2->Set(ControlMode::PercentOutput, -1);
-			if(TestCase == 5) MotorR3->Set(ControlMode::PercentOutput, -1);
-			if(TestCase == 6) MotorL3->Set(ControlMode::PercentOutput, -1);
+			if(TestCase == 4) MotorL2->Set(ControlMode::PercentOutput, 1);
+			if(TestCase == 5) MotorR3->Set(ControlMode::PercentOutput, 1);
+			if(TestCase == 6) MotorL3->Set(ControlMode::PercentOutput, 1);
 
 			count = count+1;
 			if(count>175){
 				count = 0;
 				state = Test;
+				SmartDashboard::PutNumber("Encoder",Lencoder);
+				SmartDashboard::PutNumber("Current",current);
 			}
 			break;
 		case Test:
-
+			EncRead();
 			switch(TestCase){
 			case 1:
 			{
@@ -239,20 +258,19 @@ public:
 				//Read Motor current here
 				current = MotorR1->GetOutputCurrent();
 				//Read encoder value here
-				encoder = RightEnc->GetSelectedSensorPosition(0);
 				//Normalvalue is just the number put for safe operating current and is a placeholder
-				NormalValue = 16;
+				NormalValue = NormVal[1];
 				Range = 0.5;
-				if(current == 0 && encoder <= 100){
+				if(current == 0 && Rencoder <= 100){
 					cout << "Warning: Motor#R1 Power Disconnect likely"<<endl;
-				}else if(current > NormalValue+Range && encoder <= 10){
-					cout << "Warning: Probable Motor Stall Detected In Motor#R1 Disconnect Motor#R1 Immediately"<<endl;
-				}else if(current < NormalValue+Range && current > NormalValue-Range && encoder <=10){
+				}else if(current > NormalValue+Range && Rencoder <= 10){
+					cout << "Warning: Probable Motor Stall Detected In Motor#R1"<<endl;
+				}else if(current < NormalValue+Range && current > NormalValue-Range && Rencoder <=10){
 					cout << "Warning: Encoder Error Detected In Motor#R1"<<endl;
-				}else if(current < NormalValue+Range && current > NormalValue-Range && encoder >=10){
+				}else if(current < NormalValue+Range && current > NormalValue-Range && Rencoder >=10){
 					cout << "Motor#R1 Passed Test"<<endl;
-				}else if(current == 0 && encoder > 10){
-				cout<<"Warning: Current Read Error Motor#R1"<<endl;
+				}else if(current == 0 && Rencoder > 10){
+					cout<<"Warning: Current Read Error Motor#R1"<<endl;
 				}else{
 					//This should never happen but if it does I want to know
 					cout << "Warning:Testing Error Motor#R1 Did Not Meet Any Testing Criteria"<<endl;
@@ -267,20 +285,20 @@ public:
 				//Read Motor current here
 				current = MotorL1->GetOutputCurrent();
 				//Read encoder value here
-				encoder = LeftEnc->GetSelectedSensorPosition(0);
+				Rencoder = LeftEnc->GetSelectedSensorPosition(0);
 				//Normalvalue is just the number put for safe operating current and is a placeholder
-				NormalValue = 16;
+				NormalValue = NormVal[2];
 				Range = 0.5;
-				if(current == 0 && encoder <= 10){
+				if(current == 0 && Lencoder <= 10){
 					cout << "Warning: Motor#3 Power Disconnect likely"<<endl;
-				}else if(current > NormalValue+Range && encoder <= 10){
-					cout << "Warning: Probable Motor Stall Detected In Motor#L1 Disconnect Motor#L1 Immediately"<<endl;
-				}else if(current < NormalValue+Range && current > NormalValue-Range && encoder <=10){
+				}else if(current > NormalValue+Range && Lencoder <= 10){
+					cout << "Warning: Probable Motor Stall Detected In Motor#L1"<<endl;
+				}else if(current < NormalValue+Range && current > NormalValue-Range && Lencoder <=10){
 					cout << "Warning: Encoder Error Detected In Motor#L1"<<endl;
-				}else if(current < NormalValue+Range && current > NormalValue-Range && encoder >=10){
+				}else if(current < NormalValue+Range && current > NormalValue-Range && Lencoder >=10){
 					cout << "Motor#L1 Passed Test"<<endl;
-				}else if(current == 0 && encoder >= 10){
-				cout<<"Warning: Current Read Error Motor#L1"<<endl;
+				}else if(current == 0 && Lencoder >= 10){
+					cout<<"Warning: Current Read Error Motor#L1"<<endl;
 
 				}else{
 					//This should never happen but if it does I want to know
@@ -297,19 +315,18 @@ public:
 				//Read Motor current here
 				current = MotorR2->GetOutputCurrent();
 				//Read encoder value here
-				encoder = RightEnc->GetSelectedSensorPosition(0);
 				//Normalvalue is just the number put for safe operating current and is a placeholder
-				NormalValue = 12;
+				NormalValue = NormVal[3];
 				Range = 0.5;
-				if(current == 0 && encoder <= 10){
+				if(current == 0 && Rencoder <= 10){
 					cout << "Warning: Motor#R2 Power Disconnect likely"<<endl;
-				}else if(current > NormalValue+Range && encoder <= 10){
-					cout << "Warning: Probable Motor Stall Detected In Motor#R2 Disconnect Motor#R2 Immediately"<<endl;
-				}else if(current < NormalValue+Range && current > NormalValue-Range && encoder <=10){
+				}else if(current > NormalValue+Range && Rencoder <= 10){
+					cout << "Warning: Probable Motor Stall Detected In Motor#R2"<<endl;
+				}else if(current < NormalValue+Range && current > NormalValue-Range && Rencoder <=10){
 					cout << "Warning: Encoder Error Detected In Motor#R2"<<endl;
-				}else if(current < NormalValue+Range && current > NormalValue-Range && encoder >=10){
+				}else if(current < NormalValue+Range && current > NormalValue-Range && Rencoder >=10){
 					cout << "Motor#R2 Passed Test"<<endl;
-				}else if(current == 0 && encoder >= 10){
+				}else if(current == 0 && Rencoder >= 10){
 					cout<<"Warning: Current Read Error Motor#L1"<<endl;
 				}else{
 					//This should never happen but if it does I want to know
@@ -324,19 +341,18 @@ public:
 				//Read Motor current here
 				current = MotorL2->GetOutputCurrent();
 				//Read encoder value here
-				encoder = LeftEnc->GetSelectedSensorPosition(0);
 				//Normalvalue is just the number put for safe operating current and is a placeholder
-				NormalValue = 16;
+				NormalValue = NormVal[4];
 				Range = 0.5;
-				if(current == 0 && encoder <= 10){
+				if(current == 0 && Lencoder <= 10){
 					cout << "Warning: Motor#L2 Power Disconnect likely"<<endl;
-				}else if(current > NormalValue+Range && encoder <= 10){
-					cout << "Warning: Probable Motor Stall Detected In Motor#L2 Disconnect Motor#L2 Immediately"<<endl;
-				}else if(current < NormalValue+Range && current > NormalValue-Range && encoder <=10){
+				}else if(current > NormalValue+Range && Lencoder <= 10){
+					cout << "Warning: Probable Motor Stall Detected In Motor#L2"<<endl;
+				}else if(current < NormalValue+Range && current > NormalValue-Range && Lencoder <=10){
 					cout << "Warning: Encoder Error Detected In Motor#L2"<<endl;
-				}else if(current < NormalValue+Range && current > NormalValue-Range && encoder >=10){
+				}else if(current < NormalValue+Range && current > NormalValue-Range && Lencoder >=10){
 					cout << "Motor#L2 Passed Test"<<endl;
-				}else if(current == 0 && encoder > 10){
+				}else if(current == 0 && Lencoder > 10){
 					cout<<"Warning: Current Read Error Motor#R2"<<endl;
 				}else{
 					//This should never happen but if it does I want to know
@@ -352,20 +368,19 @@ public:
 				//Read Motor current here
 				current = MotorR3->GetOutputCurrent();
 				//Read encoder value here
-				encoder = RightEnc->GetSelectedSensorPosition(0);
 				//Normalvalue is just the number put for safe operating current and is a placeholder
-				NormalValue = 16;
+				NormalValue = NormVal[0];
 				Range = 0.5;
-				if(current == 0 && encoder <= 100){
+				if(current == 0 && Rencoder <= 100){
 					cout << "Warning: Motor#R3 Power Disconnect likely"<<endl;
-				}else if(current > NormalValue+Range && encoder <= 10){
-					cout << "Warning: Probable Motor Stall Detected In Motor#R3 Disconnect Motor#R3 Immediately"<<endl;
-				}else if(current < NormalValue+Range && current > NormalValue-Range && encoder <=10){
+				}else if(current > NormalValue+Range && Rencoder <= 10){
+					cout << "Warning: Probable Motor Stall Detected In Motor#R3"<<endl;
+				}else if(current < NormalValue+Range && current > NormalValue-Range && Rencoder <=10){
 					cout << "Warning: Encoder Error Detected In Motor#R3"<<endl;
-				}else if(current < NormalValue+Range && current > NormalValue-Range && encoder >=10){
+				}else if(current < NormalValue+Range && current > NormalValue-Range && Rencoder >=10){
 					cout << "Motor#R3 Passed Test"<<endl;
 
-				}else if(current == 0 && encoder > 10){
+				}else if(current == 0 && Rencoder > 10){
 					cout<<"Warning: Current Read Error Motor#R3"<<endl;
 				}else{
 					//This should never happen but if it does I want to know
@@ -381,19 +396,18 @@ public:
 				//Read Motor current here
 				current = MotorL3->GetOutputCurrent();
 				//Read encoder value here
-				encoder = LeftEnc->GetSelectedSensorPosition(0);
 				//Normalvalue is just the number put for safe operating current and is a placeholder
-				NormalValue = 16;
+				NormalValue = NormVal[6];
 				Range = 0.5;
-				if(current == 0 && encoder <= 10){
+				if(current == 0 && Lencoder <= 10){
 					cout << "Warning: Motor#L3 Power Disconnect likely"<<endl;
-				}else if(current > NormalValue+Range && encoder <= 10){
-					cout << "Warning: Probable Motor Stall Detected In Motor#L3 Disconnect Motor#L3 Immediately"<<endl;
-				}else if(current < NormalValue+Range && current > NormalValue-Range && encoder <=10){
+				}else if(current > NormalValue+Range && Lencoder <= 10){
+					cout << "Warning: Probable Motor Stall Detected In Motor#L3"<<endl;
+				}else if(current < NormalValue+Range && current > NormalValue-Range && Lencoder <=10){
 					cout << "Warning: Encoder Error Detected In Motor#L3"<<endl;
-				}else if(current < NormalValue+Range && current > NormalValue-Range && encoder >=10){
+				}else if(current < NormalValue+Range && current > NormalValue-Range && Lencoder >=10){
 					cout << "Motor#L3 Passed Test"<<endl;
-				}else if(current == 0 && encoder >= 10){
+				}else if(current == 0 && Lencoder >= 10){
 					cout<<"Warning: Current Read Error Motor#L3"<<endl;
 				}else{
 					//This should never happen but if it does I want to know
