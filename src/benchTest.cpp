@@ -6,6 +6,7 @@
 
 
 
+
 /* Exercise 03 uses the Potentiometer (AnalogIn0), Pushbutton Switch (DIO4),
  * light sensor (DIO5) and motor 1 (CANTalon1) on the Sweet Bench.
  * It is also necessary to use the <chrono> library to precisely measure the
@@ -37,6 +38,7 @@
 using namespace std;
 
 enum State {
+	Menu,
 	Reset,
 	Prep,
 	Test
@@ -77,10 +79,12 @@ private:
 	int count=0;
 	int Lencoder;
 	int Rencoder;
+	int Tencoder;
 	double NormVal[10];
-
+	bool menu;
 	double NormalValue;
 	double Range;
+	double MultiFalure[3];
 
 
 
@@ -129,7 +133,7 @@ public:
 
 	void TeleopInit() {
 
-		Cal[0] = 0;
+
 
 	}
 
@@ -147,8 +151,8 @@ public:
 		//MotorL2->Set(ControlMode::PercentOutput, 1);
 		//MotorL3->Set(ControlMode::PercentOutput, 1);
 
-		current = MotorL2->GetOutputCurrent();
-		Lencoder = LeftEnc->GetSelectedSensorPosition(0);
+		//current = MotorL2->GetOutputCurrent();
+		//Lencoder = LeftEnc->GetSelectedSensorPosition(0);
 		SmartDashboard::PutNumber("Current",current);
 		SmartDashboard::PutNumber("LEncoder",Lencoder);
 
@@ -158,20 +162,7 @@ public:
 
 
 
-	void TestInit(){
 
-		state = Reset;
-		TestCase = 0;
-		for(int i=0;i<10;i++){
-			cout<<" "<<endl;
-		}
-		NormVal[1] = 16;
-		NormVal[2] = 16;
-		NormVal[3] = 16;
-		NormVal[4] = 16;
-		NormVal[5] = 16;
-		NormVal[6] = 16;
-	}
 
 
 	void MotorBrake(){
@@ -211,41 +202,92 @@ public:
 		Lencoder = LeftEnc->GetSelectedSensorPosition(0);
 	}
 
-	void TestPeriodic() {
+	void TestInit(){
+		MotorR2->Set(ControlMode::PercentOutput, 1);
+		MotorStop();
+		state = Menu;
+		TestCase = 0;
+		for(int i=0;i<10;i++){
+			cout<<" "<<endl;
+		}
+		NormVal[1] = 12;
+		NormVal[2] = 14;
+		NormVal[3] = 12;
+		NormVal[4] = 15;
+		NormVal[5] = 12;
+		NormVal[6] = 15;
+		Range = 1.75;
 
+		cout<<"Thank you for using ALPHA Self Test V1.0"<<endl;
+		cout<<"Please Stand Back and Make Sure Robot Is On Stilts"<<endl;
+		cout<<"Press Y To Start To Test"<<endl;
+	}
+
+
+	void TestPeriodic() {
+		EncRead();
+		SmartDashboard::PutNumber("LEncoder",Lencoder);
+		SmartDashboard::PutNumber("REncoder",Rencoder);
+		SmartDashboard::PutNumber("Current",current);
+
+
+		if(m_driver->ButtonPressedA() && menu == false){
+			state = Menu;
+			cout<<"Test Paused"<<endl;
+			TestCase = TestCase-1;
+		}
 
 
 		switch(state) {
-		case Reset:
+		case Menu:
+			MotorStop();
+			menu = true;
 
-			MotorCoast();
+			if(m_driver->ButtonPressedX() == true && TestCase > 0){
+				TestCase = TestCase-1;
+				cout<<"TestCase="<<TestCase+1<<endl;
+			}
+			if(m_driver->ButtonY() == true) {
+				state = Reset;
+				cout<<"Starting Test"<<endl;
+			}
+			if(m_driver->ButtonPressedB() == true){
+				TestCase++;
+				cout<<"Test Skipped: Currently on TestCase="<<TestCase+1<<endl;
+			}
+
+
+
+
+
+			break;
+		case Reset:
+			menu = false;
+			MotorStop();
 			MotorBrake();
 
 			count = count+1;
-			if(count>75){
+			if(count>15){
 				count = 0;
 				state = Prep;
 				TestCase = TestCase+1;
-				SmartDashboard::PutNumber("LEncoder",Lencoder);
-				SmartDashboard::PutNumber("Current",current);
 				EncoderReset();
 			}
 
 			break;
 		case Prep:
 			MotorCoast();
-			if(TestCase == 1) MotorR1->Set(ControlMode::PercentOutput, 1);
-			if(TestCase == 2) MotorL1->Set(ControlMode::PercentOutput, 1);
-			if(TestCase == 3) MotorR2->Set(ControlMode::PercentOutput, 1);
-			if(TestCase == 4) MotorL2->Set(ControlMode::PercentOutput, 1);
-			if(TestCase == 5) MotorR3->Set(ControlMode::PercentOutput, 1);
-			if(TestCase == 6) MotorL3->Set(ControlMode::PercentOutput, 1);
+			if(TestCase == 1) MotorR1->Set(ControlMode::PercentOutput, -1);
+			if(TestCase == 2) MotorL1->Set(ControlMode::PercentOutput, -1);
+			if(TestCase == 3) MotorR2->Set(ControlMode::PercentOutput, -1);
+			if(TestCase == 4) MotorL2->Set(ControlMode::PercentOutput, -1);
+			if(TestCase == 5) MotorR3->Set(ControlMode::PercentOutput, -1);
+			if(TestCase == 6) MotorL3->Set(ControlMode::PercentOutput, -1);
 
 			count = count+1;
-			if(count>175){
+			if(count>30){
 				count = 0;
 				state = Test;
-				SmartDashboard::PutNumber("Encoder",Lencoder);
 				SmartDashboard::PutNumber("Current",current);
 			}
 			break;
@@ -254,55 +296,68 @@ public:
 			switch(TestCase){
 			case 1:
 			{
-				//Test motor R1
-				//Read Motor current here
 				current = MotorR1->GetOutputCurrent();
-				//Read encoder value here
-				//Normalvalue is just the number put for safe operating current and is a placeholder
-				NormalValue = NormVal[1];
-				Range = 0.5;
-				if(current == 0 && Rencoder <= 100){
-					cout << "Warning: Motor#R1 Power Disconnect likely"<<endl;
-				}else if(current > NormalValue+Range && Rencoder <= 10){
-					cout << "Warning: Probable Motor Stall Detected In Motor#R1"<<endl;
-				}else if(current < NormalValue+Range && current > NormalValue-Range && Rencoder <=10){
-					cout << "Warning: Encoder Error Detected In Motor#R1"<<endl;
-				}else if(current < NormalValue+Range && current > NormalValue-Range && Rencoder >=10){
-					cout << "Motor#R1 Passed Test"<<endl;
-				}else if(current == 0 && Rencoder > 10){
-					cout<<"Warning: Current Read Error Motor#R1"<<endl;
+				NormalValue = NormVal[TestCase];
+				Tencoder = Rencoder;
+
+				if((current < NormalValue+Range && current > NormalValue-Range) && Tencoder >=100){
+					cout<<"Motor"<<TestCase<<" Passed Test"<<endl;
+				}else if(current == 0 && Tencoder <= 100){
+
+					cout<<"Warning: Motor"<<TestCase<<" Is Probably Disconnected"<<endl;
+				}else if((current < NormalValue+Range && current > NormalValue-Range) && Tencoder == 0){
+
+					cout<<"Warning: Motor"<<TestCase<<" Likely Encoder Register Error"<<endl;
+					MultiFalure[1]++;
+				}else if(current > NormalValue+Range && Tencoder == 0){
+
+					cout<<"Warning: Motor"<<TestCase<<" Stall Detected"<<endl;
+				}else if(current > NormalValue+Range && Tencoder > 100){
+
+					cout<<"Warning: Motor"<<TestCase<<" OverDraw Detected"<<endl;
+				}else if(current < NormalValue-Range && Tencoder > 100){
+
+					cout<<"Motor"<<TestCase<<" Passed Test Recommend ReCalabration"<<endl;
+				}else if((current < NormalValue+Range && current > NormalValue-Range) && Tencoder <-100){
+					cout<<"Warning: Motor"<<TestCase<<" Inverted Polarity Detected"<<endl;
 				}else{
-					//This should never happen but if it does I want to know
-					cout << "Warning:Testing Error Motor#R1 Did Not Meet Any Testing Criteria"<<endl;
+
+					cout<<"Warning: This case failed miserably"<<endl;
 				}
 
 				state = Reset;
 				break;
-
 			}
+
 			case 2:
 			{
-				//Read Motor current here
 				current = MotorL1->GetOutputCurrent();
-				//Read encoder value here
-				Rencoder = LeftEnc->GetSelectedSensorPosition(0);
-				//Normalvalue is just the number put for safe operating current and is a placeholder
-				NormalValue = NormVal[2];
-				Range = 0.5;
-				if(current == 0 && Lencoder <= 10){
-					cout << "Warning: Motor#3 Power Disconnect likely"<<endl;
-				}else if(current > NormalValue+Range && Lencoder <= 10){
-					cout << "Warning: Probable Motor Stall Detected In Motor#L1"<<endl;
-				}else if(current < NormalValue+Range && current > NormalValue-Range && Lencoder <=10){
-					cout << "Warning: Encoder Error Detected In Motor#L1"<<endl;
-				}else if(current < NormalValue+Range && current > NormalValue-Range && Lencoder >=10){
-					cout << "Motor#L1 Passed Test"<<endl;
-				}else if(current == 0 && Lencoder >= 10){
-					cout<<"Warning: Current Read Error Motor#L1"<<endl;
+				NormalValue = NormVal[TestCase];
+				Tencoder = Lencoder;
 
+				if((current < NormalValue+Range && current > NormalValue-Range) && Tencoder >=100){
+					cout<<"Motor"<<TestCase<<" Passed Test"<<endl;
+				}else if(current == 0 && Tencoder <= 100){
+
+					cout<<"Warning: Motor"<<TestCase<<" Is Probably Disconnected"<<endl;
+				}else if((current < NormalValue+Range && current > NormalValue-Range) && Tencoder == 0){
+
+					cout<<"Warning: Motor"<<TestCase<<" Likely Encoder Register Error"<<endl;
+					MultiFalure[2]++;
+				}else if(current > NormalValue+Range && Tencoder == 0){
+
+					cout<<"Warning: Motor"<<TestCase<<" Stall Detected"<<endl;
+				}else if(current > NormalValue+Range && Tencoder < 100){
+
+					cout<<"Warning: Motor"<<TestCase<<" OverDraw Detected"<<endl;
+				}else if(current < NormalValue-Range && Tencoder > 100){
+
+					cout<<"Motor"<<TestCase<<" Passed Test Recommend ReCalabration"<<endl;
+				}else if((current < NormalValue+Range && current > NormalValue-Range) && Tencoder <-100){
+					cout<<"Warning: Motor"<<TestCase<<" Inverted Polarity Detected"<<endl;
 				}else{
-					//This should never happen but if it does I want to know
-					cout << "Warning:Testing Error Motor#L1 Did Not Meet Any Testing Criteria"<<endl;
+
+					cout<<"Warning: This case failed miserably"<<endl;
 				}
 
 				state = Reset;
@@ -311,113 +366,157 @@ public:
 			break;
 			case 3:
 			{
-				//Read Motor current here
-				//Read Motor current here
 				current = MotorR2->GetOutputCurrent();
-				//Read encoder value here
-				//Normalvalue is just the number put for safe operating current and is a placeholder
-				NormalValue = NormVal[3];
-				Range = 0.5;
-				if(current == 0 && Rencoder <= 10){
-					cout << "Warning: Motor#R2 Power Disconnect likely"<<endl;
-				}else if(current > NormalValue+Range && Rencoder <= 10){
-					cout << "Warning: Probable Motor Stall Detected In Motor#R2"<<endl;
-				}else if(current < NormalValue+Range && current > NormalValue-Range && Rencoder <=10){
-					cout << "Warning: Encoder Error Detected In Motor#R2"<<endl;
-				}else if(current < NormalValue+Range && current > NormalValue-Range && Rencoder >=10){
-					cout << "Motor#R2 Passed Test"<<endl;
-				}else if(current == 0 && Rencoder >= 10){
-					cout<<"Warning: Current Read Error Motor#L1"<<endl;
+				NormalValue = NormVal[TestCase];
+				Tencoder = Rencoder;
+
+				if((current < NormalValue+Range && current > NormalValue-Range) && Tencoder >=100){
+					cout<<"Motor"<<TestCase<<" Passed Test"<<endl;
+				}else if(current == 0 && Tencoder <= 100){
+
+					cout<<"Warning: Motor"<<TestCase<<" Is Probably Disconnected"<<endl;
+				}else if((current < NormalValue+Range && current > NormalValue-Range) && Tencoder == 0){
+
+					cout<<"Warning: Motor"<<TestCase<<" Likely Encoder Register Error"<<endl;
+					MultiFalure[1]++;
+				}else if(current > NormalValue+Range && Tencoder == 0){
+
+					cout<<"Warning: Motor"<<TestCase<<" Stall Detected"<<endl;
+				}else if(current > NormalValue+Range && Tencoder > 100){
+
+					cout<<"Warning: Motor"<<TestCase<<" OverDraw Detected"<<endl;
+				}else if(current < NormalValue-Range && Tencoder > 100){
+
+					cout<<"Motor"<<TestCase<<" Passed Test Recommend ReCalabration"<<endl;
+				}else if((current < NormalValue+Range && current > NormalValue-Range) && Tencoder <-100){
+					cout<<"Warning: Motor"<<TestCase<<" Inverted Polarity Detected"<<endl;
 				}else{
-					//This should never happen but if it does I want to know
-					cout << "Warning:Testing Error Motor#R2 Did Not Meet Any Testing Criteria"<<endl;
+
+					cout<<"Warning: This case failed miserably"<<endl;
 				}
 
 				state = Reset;
 				break;
+
 			}
 			case 4:
 			{
-				//Read Motor current here
 				current = MotorL2->GetOutputCurrent();
-				//Read encoder value here
-				//Normalvalue is just the number put for safe operating current and is a placeholder
-				NormalValue = NormVal[4];
-				Range = 0.5;
-				if(current == 0 && Lencoder <= 10){
-					cout << "Warning: Motor#L2 Power Disconnect likely"<<endl;
-				}else if(current > NormalValue+Range && Lencoder <= 10){
-					cout << "Warning: Probable Motor Stall Detected In Motor#L2"<<endl;
-				}else if(current < NormalValue+Range && current > NormalValue-Range && Lencoder <=10){
-					cout << "Warning: Encoder Error Detected In Motor#L2"<<endl;
-				}else if(current < NormalValue+Range && current > NormalValue-Range && Lencoder >=10){
-					cout << "Motor#L2 Passed Test"<<endl;
-				}else if(current == 0 && Lencoder > 10){
-					cout<<"Warning: Current Read Error Motor#R2"<<endl;
+				NormalValue = NormVal[TestCase];
+				Tencoder = Lencoder;
+
+				if((current < NormalValue+Range && current > NormalValue-Range) && Tencoder >=100){
+					cout<<"Motor"<<TestCase<<" Passed Test"<<endl;
+				}else if(current == 0 && Tencoder <= 100){
+
+					cout<<"Warning: Motor"<<TestCase<<" Is Probably Disconnected"<<endl;
+				}else if((current < NormalValue+Range && current > NormalValue-Range) && Tencoder == 0){
+
+					cout<<"Warning: Motor"<<TestCase<<" Likely Encoder Register Error"<<endl;
+					MultiFalure[2]++;
+				}else if(current > NormalValue+Range && Tencoder == 0){
+
+					cout<<"Warning: Motor"<<TestCase<<" Stall Detected"<<endl;
+				}else if(current > NormalValue+Range && Tencoder > 100){
+
+					cout<<"Warning: Motor"<<TestCase<<" OverDraw Detected"<<endl;
+				}else if(current < NormalValue-Range && Tencoder > 100){
+
+					cout<<"Motor"<<TestCase<<" Passed Test Recommend ReCalabration"<<endl;
+				}else if((current < NormalValue+Range && current > NormalValue-Range) && Tencoder <-100){
+					cout<<"Warning: Motor"<<TestCase<<" Inverted Polarity Detected"<<endl;
 				}else{
-					//This should never happen but if it does I want to know
-					cout << "Warning:Testing Error Motor#L2 Did Not Meet Any Testing Criteria"<<endl;
+
+					cout<<"Warning: This case failed miserably"<<endl;
 				}
 
 				state = Reset;
 				break;
+
 			}
 
 			case 5:
 			{
-				//Read Motor current here
 				current = MotorR3->GetOutputCurrent();
-				//Read encoder value here
-				//Normalvalue is just the number put for safe operating current and is a placeholder
-				NormalValue = NormVal[0];
-				Range = 0.5;
-				if(current == 0 && Rencoder <= 100){
-					cout << "Warning: Motor#R3 Power Disconnect likely"<<endl;
-				}else if(current > NormalValue+Range && Rencoder <= 10){
-					cout << "Warning: Probable Motor Stall Detected In Motor#R3"<<endl;
-				}else if(current < NormalValue+Range && current > NormalValue-Range && Rencoder <=10){
-					cout << "Warning: Encoder Error Detected In Motor#R3"<<endl;
-				}else if(current < NormalValue+Range && current > NormalValue-Range && Rencoder >=10){
-					cout << "Motor#R3 Passed Test"<<endl;
+				NormalValue = NormVal[TestCase];
+				Tencoder = Rencoder;
 
-				}else if(current == 0 && Rencoder > 10){
-					cout<<"Warning: Current Read Error Motor#R3"<<endl;
+				if((current < NormalValue+Range && current > NormalValue-Range) && Tencoder >=100){
+					cout<<"Motor"<<TestCase<<" Passed Test"<<endl;
+				}else if(current == 0 && Tencoder <= 100){
+
+					cout<<"Warning: Motor"<<TestCase<<" Is Probably Disconnected"<<endl;
+				}else if((current < NormalValue+Range && current > NormalValue-Range) && Tencoder == 0){
+
+					cout<<"Warning: Motor"<<TestCase<<" Likely Encoder Register Error"<<endl;
+					MultiFalure[1]++;
+				}else if(current > NormalValue+Range && Tencoder == 0){
+
+					cout<<"Warning: Motor"<<TestCase<<" Stall Detected"<<endl;
+				}else if(current > NormalValue+Range && Tencoder > 100){
+
+					cout<<"Warning: Motor"<<TestCase<<" OverDraw Detected"<<endl;
+				}else if(current < NormalValue-Range && Tencoder > 100){
+
+					cout<<"Motor"<<TestCase<<" Passed Test Recommend ReCalabration"<<endl;
+				}else if((current < NormalValue+Range && current > NormalValue-Range) && Tencoder <-100){
+					cout<<"Warning: Motor"<<TestCase<<" Inverted Polarity Detected"<<endl;
 				}else{
-					//This should never happen but if it does I want to know
-					cout << "Warning:Testing Error Motor#R3 Did Not Meet Any Testing Criteria"<<endl;
+
+					cout<<"Warning: This case failed miserably"<<endl;
 				}
 
 				state = Reset;
 				break;
+
 
 			}
 			case 6:
 			{
-				//Read Motor current here
 				current = MotorL3->GetOutputCurrent();
-				//Read encoder value here
-				//Normalvalue is just the number put for safe operating current and is a placeholder
-				NormalValue = NormVal[6];
-				Range = 0.5;
-				if(current == 0 && Lencoder <= 10){
-					cout << "Warning: Motor#L3 Power Disconnect likely"<<endl;
-				}else if(current > NormalValue+Range && Lencoder <= 10){
-					cout << "Warning: Probable Motor Stall Detected In Motor#L3"<<endl;
-				}else if(current < NormalValue+Range && current > NormalValue-Range && Lencoder <=10){
-					cout << "Warning: Encoder Error Detected In Motor#L3"<<endl;
-				}else if(current < NormalValue+Range && current > NormalValue-Range && Lencoder >=10){
-					cout << "Motor#L3 Passed Test"<<endl;
-				}else if(current == 0 && Lencoder >= 10){
-					cout<<"Warning: Current Read Error Motor#L3"<<endl;
+				NormalValue = NormVal[TestCase];
+				Tencoder = Lencoder;
+
+				if((current < NormalValue+Range && current > NormalValue-Range) && Tencoder >=100){
+					cout<<"Motor"<<TestCase<<" Passed Test"<<endl;
+				}else if(current == 0 && Tencoder <= 100){
+
+					cout<<"Warning: Motor"<<TestCase<<" Is Probably Disconnected"<<endl;
+				}else if((current < NormalValue+Range && current > NormalValue-Range) && Tencoder == 0){
+
+					cout<<"Warning: Motor"<<TestCase<<" Likely Encoder Register Error"<<endl;
+					MultiFalure[2]++;
+				}else if(current > NormalValue+Range && Tencoder == 0){
+
+					cout<<"Warning: Motor"<<TestCase<<" Stall Detected"<<endl;
+				}else if(current > NormalValue+Range && Tencoder > 100){
+
+					cout<<"Warning: Motor"<<TestCase<<" OverDraw Detected"<<endl;
+				}else if(current < NormalValue-Range && Tencoder > 100){
+
+					cout<<"Motor"<<TestCase<<" Passed Test Recommend ReCalabration"<<endl;
+				}else if((current < NormalValue+Range && current > NormalValue-Range) && Tencoder <-100){
+					cout<<"Warning: Motor"<<TestCase<<" Inverted Polarity Detected"<<endl;
 				}else{
-					//This should never happen but if it does I want to know
-					cout << "Warning:Testing Error Motor#L3 Did Not Meet Any Testing Criteria"<<endl;
+
+					cout<<"Warning: This case failed miserably"<<endl;
 				}
 
 				state = Reset;
 				break;
 			}
-
+			case 7:
+			{
+				cout<<"Test Complete and Paused"<<endl;
+				if(MultiFalure[1] <= 3){
+					cout<<"Right Encoder Failure"<<endl;
+				}
+				if(MultiFalure[2] <= 3){
+					cout<<"Left Encoder Failure"<<endl;
+				}
+				state = Menu;
+				break;
+			}
 
 			}
 
