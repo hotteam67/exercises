@@ -147,7 +147,7 @@ public:
 		//MotorR1->Set(ControlMode::PercentOutput, 1);
 		MotorR2->Set(ControlMode::PercentOutput, 1);
 		//MotorR3->Set(ControlMode::PercentOutput, 1);
-		//MotorL1->Set(ControlMode::PercentOutput, 1);
+		MotorL1->Set(ControlMode::PercentOutput, 1);
 		//MotorL2->Set(ControlMode::PercentOutput, 1);
 		//MotorL3->Set(ControlMode::PercentOutput, 1);
 
@@ -512,6 +512,7 @@ public:
 					cout<<"Right Encoder Failure"<<endl;
 				}
 				if(MultiFalure[2] <= 3){
+
 					cout<<"Left Encoder Failure"<<endl;
 				}
 				state = Menu;
