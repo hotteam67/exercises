@@ -2,48 +2,69 @@
 #include "RobotUtils/HotJoystick.h"
 #include "ctre/Phoenix.h"
 
-/* Exercise 01 is to use the joystick and motors (Talon SRX) 2, 3, 4 on the Sweet Bench
- *
- * Functional Requirements:
- * 1)  All functionality shall be done in TeleOp mode.
- * 2)  Use the joystick "A" button to cycle between controlling motor 2, motor 3, motor 4, or no motor.
- * 3)  Upon initialization, the control shall default to "no motor" for safety.
- * 4)  Button presses shall be interpreted as the transition from false to true.
- * 5)  The joystick left stick, x-axis shall control the speed and direction of the active motor.
- * 6)  The x-axis of the left stick should have a deadband from -0.2 to +0.2 to allow for
- *     joystick hysteresis (i.e. not quite returning to zero when released)
- * 7)  The lower "active" region of the joystick (-1.0 -> -0.2) shall command between -1.0 and 0.0 speed.
- * 8)  The upper "active" region of the joystick (+0.2 -> +1.0) shall command between 0.0 and +1.0 speed.
- * 9)  The A Button State, Commanded Speed, and Active Motor shall be output to the dashboard.
- *
+/*
  */
 
-class benchTest: public IterativeRobot {
+class benchTest: public TimedRobot {
 private:
 
-	HotJoystick* m_driver;
-	TalonSRX* m_CANmotor2;
-	TalonSRX* m_CANmotor3;
-	TalonSRX* m_CANmotor4;
+	WPI_TalonSRX* m_CANmotor1;
+	WPI_TalonSRX* m_CANmotor3;
+	AnalogInput* m_Analog0;
+	DigitalInput* m_SwitchDIO4;
+	Encoder* m_EncoderMtr1;
+	PowerDistributionPanel* pdp;
 
-	bool aButton;
-	bool aButtonOld = false;
 	bool motorStTransInProcess = false;
-	float joystickRaw;
-	float spdCmd;
+	bool switchSignal;
+	bool switchSignalOld = false;
+	double pot1;
+	int testMode = 0;
+	double current1;
+	double current3;
+	double encoder3;
+	double actSpdRPM3;
+	double voltage1;
+	double voltage3;
+	double percent1;
+	double percent3;
+	double pdpCurr1;
+	double pdpCurr3;
 
-	int motorSelect = 0;
-	     /* 0: Off (no motor)
-		    1: CANTalon2
-			2: CANTalon3
-			3: CANTalon4 */
+	double currentLimit = 0.0;
+
+	double speedCommandPID = 0.0;
+
+	double encoderTicksMtr1;
+	double actSpdRPM1;
+
+	double spdCmd;
+
+	double pdpVoltage;
 
 public:
 	benchTest() {
-		m_driver = new HotJoystick(0);
-		m_CANmotor2 = new TalonSRX(2);
-		m_CANmotor3 = new TalonSRX(3);
-		m_CANmotor4 = new TalonSRX(4);
+		m_Analog0 = new AnalogInput(0);  /* Analog Input Channel 0 */
+		m_SwitchDIO4 = new DigitalInput(4);
+
+		m_CANmotor1 = new WPI_TalonSRX(1);
+		m_CANmotor1->ConfigOpenloopRamp(8.0, 0);
+		m_CANmotor1->ConfigClosedloopRamp(8.0, 0);
+
+		m_CANmotor3 = new WPI_TalonSRX(3);
+		m_CANmotor3->ConfigSelectedFeedbackSensor(FeedbackDevice::CTRE_MagEncoder_Relative, 0, 0);
+		m_CANmotor3->SetInverted(true);
+		m_CANmotor3->SetSensorPhase(true);
+		m_CANmotor3->SetSelectedSensorPosition(0, 0, 0);
+		m_CANmotor3->ConfigOpenloopRamp(0.5, 0);
+		m_CANmotor3->ConfigClosedloopRamp(0.5, 0);
+
+		m_EncoderMtr1 = new Encoder(2,3,true,Encoder::EncodingType::k4X);
+		m_EncoderMtr1->SetSamplesToAverage(15);
+		m_EncoderMtr1->SetDistancePerPulse(1.0 / 256.0); /* 1 rotation per 256 pulses */
+		m_EncoderMtr1->Reset();
+
+		pdp = new PowerDistributionPanel();
 	}
 	void RobotInit() {
 	}
@@ -58,27 +79,49 @@ public:
 	}
 
 	void TeleopInit() {
-
+		testMode = 0;
+		speedCommandPID = 0.0;
+		m_CANmotor3->Config_kF(0, 0.0339, 0);
+		m_CANmotor3->Config_kP(0, 0.0001, 0);
+		m_CANmotor3->Config_kI(0, 0.0001, 0);
+		m_CANmotor3->Config_kD(0, 0.0000, 0);
 	}
 
 	void TeleopPeriodic() {
 
-		 /* Read inputs from Joystick */
-		 aButton = m_driver->ButtonA();
-		 joystickRaw = m_driver->AxisLX();  /* Uses Left Stick, X axis */
+		 /* Read inputs from DIO4 */
+		 switchSignal = !m_SwitchDIO4->Get();
 
-		 /* Deadband input, determine joystickMod */
-		 if(joystickRaw <= 0.2 && joystickRaw >= -0.2){
+		 /* Read potentiometer inputs from Analog0 */
+		 pot1 = m_Analog0->GetValue();
+		 spdCmd = (pot1 - 15.0) / 3900.0;
+		 if (spdCmd < 0.0) {
 			 spdCmd = 0.0;
-		 }else if(joystickRaw > 0.2){
-			 spdCmd = (joystickRaw - 0.2) * 1.25;
-		 }else{
-			 spdCmd = (joystickRaw + 0.2) * 1.25;
+		 } else if (spdCmd > 1.0) {
+			 spdCmd = 1.0;
 		 }
+
+		 /* Read Motor Parameters */
+		 current1 = m_CANmotor1->GetOutputCurrent();
+		 current3 = m_CANmotor3->GetOutputCurrent();
+		 voltage1 = m_CANmotor1->GetMotorOutputVoltage();
+		 voltage3 = m_CANmotor3->GetMotorOutputVoltage();
+		 percent1 = m_CANmotor1->GetMotorOutputPercent();
+		 percent3 = m_CANmotor3->GetMotorOutputPercent();
+		 encoder3 = (m_CANmotor3->GetSelectedSensorPosition(0) / 4096.0);
+		 actSpdRPM3 = m_CANmotor3->GetSelectedSensorVelocity(0) * (600.0/4096.0);
+
+		 pdpCurr1 = pdp->GetCurrent(0);
+		 pdpCurr3 = pdp->GetCurrent(2);
+		 pdpVoltage = pdp->GetVoltage();
+
+		 /* Convert encoder rate to rpm */
+		 encoderTicksMtr1 = m_EncoderMtr1->Get();
+		 actSpdRPM1 = (m_EncoderMtr1->GetRate() * 60.0);
 
 		 /* Process button presses */
 		 /* Look for aButton to transition from false to true */
-		 if ((aButton == true) && (aButtonOld == false)) {
+		 if ((switchSignal == true) && (switchSignalOld == false)) {
 			 motorStTransInProcess = true;
 		 } else {
 			 motorStTransInProcess = false;
@@ -86,49 +129,61 @@ public:
 
 		 /* Use motorSelect to define speed commands to motors */
 		 if (motorStTransInProcess == true) {
-			 if (motorSelect < 3) {
-				 motorSelect++;
+			 if (testMode < 2) {
+				 testMode++;
 			 } else {
-				 motorSelect = 0;
+				 testMode = 0;
 			 }
 		 }
 
 		 /* Command speeds to motor controllers */
-		 switch (motorSelect) {
+		 switch (testMode) {
 		 case 0:
-			 m_CANmotor2->Set(ControlMode::PercentOutput, 0.0);
+			 m_EncoderMtr1->Reset();
+			 m_CANmotor3->SetSelectedSensorPosition(0, 0, 0);
+			 m_CANmotor1->Set(ControlMode::PercentOutput, 0.0);
 			 m_CANmotor3->Set(ControlMode::PercentOutput, 0.0);
-			 m_CANmotor4->Set(ControlMode::PercentOutput, 0.0);
+			 speedCommandPID = 0.0;
+			 currentLimit = 0.0;
 			 break;
 		 case 1:
-			 m_CANmotor2->Set(ControlMode::PercentOutput, spdCmd);
-			 m_CANmotor3->Set(ControlMode::PercentOutput, 0.0);
-			 m_CANmotor4->Set(ControlMode::PercentOutput, 0.0);
+			 m_CANmotor1->Set(ControlMode::PercentOutput, spdCmd);
+			 m_CANmotor3->Set(ControlMode::PercentOutput, spdCmd);
+			 speedCommandPID = actSpdRPM3;
 			 break;
 		 case 2:
-			 m_CANmotor2->Set(ControlMode::PercentOutput, 0.0);
-			 m_CANmotor3->Set(ControlMode::PercentOutput, spdCmd);
-			 m_CANmotor4->Set(ControlMode::PercentOutput, 0.0);
-			 break;
-		 case 3:
-			 m_CANmotor2->Set(ControlMode::PercentOutput, 0.0);
-			 m_CANmotor3->Set(ControlMode::PercentOutput, 0.0);
-			 m_CANmotor4->Set(ControlMode::PercentOutput, spdCmd);
+			 m_CANmotor3->Set(ControlMode::Velocity, (speedCommandPID * (4096.0/600.0)));
+			 m_CANmotor1->Follow(*m_CANmotor3);
+			 currentLimit = current3;
 			 break;
 		 }
 
 		 /* Preserve knowledge of previous loop button state */
-		 aButtonOld = aButton;
+		 switchSignalOld = switchSignal;
 
 		 DashboardOutput();
 	}
 
 	void DashboardOutput() {
-		/* Writes variables to Dashboard */
-		SmartDashboard::PutBoolean("ButtonA", aButton);
-		SmartDashboard::PutNumber("joystickRaw", joystickRaw);
-		SmartDashboard::PutNumber("motorSelect", motorSelect);
+		/* Writes variables to  Dashboard */
+		SmartDashboard::PutBoolean("switchSignal", switchSignal);
 		SmartDashboard::PutNumber("SpdCmd", spdCmd);
+		SmartDashboard::PutNumber("testMode", testMode);
+		SmartDashboard::PutNumber("current1", current1);
+		SmartDashboard::PutNumber("current3", current3);
+		SmartDashboard::PutNumber("encoder3", encoder3);
+		SmartDashboard::PutNumber("actSpdRPM1", actSpdRPM1);
+		SmartDashboard::PutNumber("actSpdRPM3", actSpdRPM3);
+		SmartDashboard::PutNumber("speedCommandPID", speedCommandPID);
+		SmartDashboard::PutNumber("voltage1", voltage1);
+		SmartDashboard::PutNumber("voltage3", voltage3);
+		SmartDashboard::PutNumber("percent1", percent1);
+		SmartDashboard::PutNumber("percent3", percent3);
+		SmartDashboard::PutNumber("currentLimit", currentLimit);
+		SmartDashboard::PutNumber("pdpCurr1", pdpCurr1);
+		SmartDashboard::PutNumber("pdpCurr3", pdpCurr3);
+		SmartDashboard::PutNumber("pdpVoltage", pdpVoltage);
+
 	}
 
 
